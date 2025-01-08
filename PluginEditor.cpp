@@ -2,7 +2,7 @@
   ==============================================================================
 
     Phoenix Saturation Plugin
-    Created: 2025-01-08 12:50:51 UTC
+    Created: 2025-01-08 13:05:15 UTC
     Author:  RGLXStudio
 
   ==============================================================================
@@ -43,17 +43,17 @@ PhoenixSaturationAudioProcessorEditor::PhoenixSaturationAudioProcessorEditor(Pho
     addAndMakeVisible(inputGainLabel);
     inputGainLabel.setText("Input Gain", dontSendNotification);
     inputGainLabel.setJustificationType(Justification::centred);
-    inputGainLabel.setFont(Font(FontOptions().withSize(16.0f).withStyle(Font::plain)));
+    inputGainLabel.setFont(Font(16.0f));
 
     addAndMakeVisible(saturationLabel);
     saturationLabel.setText("Saturation", dontSendNotification);
     saturationLabel.setJustificationType(Justification::centred);
-    saturationLabel.setFont(Font(FontOptions().withSize(16.0f).withStyle(Font::plain)));
+    saturationLabel.setFont(Font(16.0f));
 
     addAndMakeVisible(outputGainLabel);
     outputGainLabel.setText("Output Gain", dontSendNotification);
     outputGainLabel.setJustificationType(Justification::centred);
-    outputGainLabel.setFont(Font(FontOptions().withSize(16.0f).withStyle(Font::plain)));
+    outputGainLabel.setFont(Font(16.0f));
 
     // Initialize ComboBoxes
     addAndMakeVisible(typeComboBox);
@@ -74,12 +74,12 @@ PhoenixSaturationAudioProcessorEditor::PhoenixSaturationAudioProcessorEditor(Pho
     addAndMakeVisible(typeLabel);
     typeLabel.setText("Type", dontSendNotification);
     typeLabel.setJustificationType(Justification::centred);
-    typeLabel.setFont(Font(FontOptions().withSize(16.0f).withStyle(Font::plain)));
+    typeLabel.setFont(Font(16.0f));
 
     addAndMakeVisible(brightnessLabel);
     brightnessLabel.setText("Brightness", dontSendNotification);
     brightnessLabel.setJustificationType(Justification::centred);
-    brightnessLabel.setFont(Font(FontOptions().withSize(16.0f).withStyle(Font::plain)));
+    brightnessLabel.setFont(Font(16.0f));
 
     // Set up parameter attachments
     inputGainAttachment = std::make_unique<AudioProcessorValueTreeState::SliderAttachment>(
@@ -105,7 +105,7 @@ void PhoenixSaturationAudioProcessorEditor::paint(Graphics& g)
 
     // Draw title
     g.setColour(Colours::white);
-    g.setFont(Font(FontOptions().withSize(24.0f).withStyle(Font::bold)));
+    g.setFont(Font(24.0f).boldened());
     g.drawText("Phoenix Saturation", getLocalBounds().removeFromTop(40),
                Justification::centred, true);
 }
