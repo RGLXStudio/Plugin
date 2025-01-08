@@ -1,8 +1,8 @@
 /*
   ==============================================================================
 
-    Phoenix Tape Plugin
-    Created: 2025-01-08 06:48:30 UTC
+    Phoenix Saturation Plugin
+    Created: 2025-01-08 11:04:32 UTC
     Author:  RGLXStudio
 
   ==============================================================================
@@ -11,362 +11,204 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-using namespace juce;
-
-PhoenixTapeAudioProcessor::PhoenixProcessor::PhoenixProcessor() 
-    : sr_scale(1.0f), s(0.0f), prev_x(0.0f), 
-      hpf_k(0.0f), lpf_k(0.0f), a3(0.0f), f1(0.0f),
-      p20(0.0f), p24(0.0f), g0(true), sat_type(0),
-      model_type(0), processing(0.0f), 
-      auto_gain_a1(0.0f), auto_gain_a2(0.0f), auto_gain(1.0f)
+//==============================================================================
+PhoenixTapeAudioProcessorEditor::VUMeter::VUMeter()
 {
-    reset();
+    startTimerHz(30); // 30 fps update rate
 }
 
-void PhoenixTapeAudioProcessor::PhoenixProcessor::setSampleRate(double sampleRate)
+void PhoenixTapeAudioProcessorEditor::VUMeter::paint(juce::Graphics& g)
 {
-    sr_scale = 1.0f / ceil(sampleRate / 44100.0f);
-}
-
-void PhoenixTapeAudioProcessor::PhoenixProcessor::reset()
-{
-    s = 0.0f;
-    prev_x = 0.0f;
-}
-
-void PhoenixTapeAudioProcessor::PhoenixProcessor::setMode(float brightness, float type)
-{
-    model_type = static_cast<int>(type);
-    sat_type = static_cast<int>(brightness);
-
-    hpf_k = 0.042f * sr_scale;
-    lpf_k = 0.047f * sr_scale;
+    const auto bounds = getLocalBounds().toFloat();
+    const float meterHeight = bounds.getHeight() * (0.1f + 0.9f * displayLevel);
     
-    f1 = 0.55f;
-    p20 = 0.25f;
-    p24 = 0.28f;
-    a3 = 0.35f;
-    g0 = true;
+    // Background
+    g.setColour(juce::Colour(0xFF2D3436));
+    g.fillRect(bounds);
 
-    switch (model_type) {
-        case 1:  // Iridescent
-            f1 = 0.48f;
-            p20 = 0.27f;
-            break;
-        case 2:  // Radiant
-            f1 = 0.42f;
-            p24 = 0.32f;
-            a3 = 0.38f;
-            break;
-        case 3:  // Luster
-            a3 = 0.36f;
-            p20 = 0.29f;
-            g0 = false;
-            break;
-        case 4:  // Dark Essence
-            f1 = 0.38f;
-            p20 = 0.31f;
-            p24 = 0.34f;
-            a3 = 0.40f;
-            break;
-    }
-}
-
-void PhoenixTapeAudioProcessor::PhoenixProcessor::setProcessing(float amount)
-{
-    processing = amount;
-    auto_gain_a1 = 1.0f + processing * 0.25f;
-    auto_gain_a2 = 1.0f + processing * 0.15f;
-    auto_gain = 1.0f / (auto_gain_a1 * auto_gain_a2);
-}
-
-float PhoenixTapeAudioProcessor::PhoenixProcessor::sat(float x)
-{
-    switch (sat_type) {
-        case 0:  // Opal
-            return std::tanh(x * 1.2f) / 1.2f;
-        case 1:  // Gold
-            return x / (1.0f + std::abs(x * 1.1f));
-        case 2:  // Sapphire
-            return std::atan(x * 1.3f) / 1.3f;
-        default:
-            return x;
-    }
-}
-
-float PhoenixTapeAudioProcessor::PhoenixProcessor::processSample(float x)
-{
-    float proc = processing * a3;
-    float x1 = hpf_k * x + 0.995f * (x - prev_x);
-    float x2 = x1 * f1 + x1;
-    float x3 = (!g0) ? x : x2;
-    float x4 = (model_type == 3) ? sat(x2 * proc * 1.2f) : sat(x2);
-    float x5 = sat(x4 * proc * p20 + x3);
-
-    prev_x = x;
-    s += (x5 - s) * lpf_k;
-    float y = proc * (s - x * p24);
-
-    if (model_type == 3) {
-        y *= 0.6f;
-    }
+    // Meter gradient
+    juce::ColourGradient gradient(
+        juce::Colour(0xFF27AE60),  // Green
+        bounds.getBottomLeft(),
+        juce::Colour(0xFFF27121),  // Orange
+        bounds.getTopLeft(),
+        false);
+    gradient.addColour(0.7, juce::Colour(0xFFE74C3C)); // Red
     
-    if (model_type == 4) {
-        y = sat(y * 1.1f);
-    }
-
-    return (y + x) * auto_gain;
+    g.setGradientFill(gradient);
+    g.fillRect(bounds.withHeight(meterHeight).withBottomY(bounds.getBottom()));
 }
 
-PhoenixTapeAudioProcessor::PhoenixTapeAudioProcessor()
-    : AudioProcessor(BusesProperties()
-                    .withInput("Input", AudioChannelSet::stereo(), true)
-                    .withOutput("Output", AudioChannelSet::stereo(), true)),
-      parameters(*this, nullptr, "Parameters", {
-          std::make_unique<AudioParameterFloat>(INPUT_TRIM_ID, "Input Trim",
-                                              NormalisableRange<float>(-6.0f, 6.0f, 0.01f),
-                                              0.0f),
-          std::make_unique<AudioParameterFloat>(PROCESS_ID, "Process",
-                                              NormalisableRange<float>(0.0f, 100.0f, 0.01f),
-                                              0.0f),
-          std::make_unique<AudioParameterFloat>(OUTPUT_TRIM_ID, "Output Trim",
-                                              NormalisableRange<float>(-6.0f, 6.0f, 0.01f),
-                                              0.0f),
-          std::make_unique<AudioParameterChoice>(BRIGHTNESS_ID, "Brightness",
-                                               StringArray{"Opal", "Gold", "Sapphire"},
-                                               0),
-          std::make_unique<AudioParameterChoice>(TYPE_ID, "Type",
-                                               StringArray{"Luminiscent", "Iridescent", "Radiant", "Luster", "Dark Essence"},
-                                               0)
-      })
-{
-    parameters.addParameterListener(INPUT_TRIM_ID, this);
-    parameters.addParameterListener(PROCESS_ID, this);
-    parameters.addParameterListener(OUTPUT_TRIM_ID, this);
-    parameters.addParameterListener(BRIGHTNESS_ID, this);
-    parameters.addParameterListener(TYPE_ID, this);
-}
-
-PhoenixTapeAudioProcessor::~PhoenixTapeAudioProcessor()
-{
-    parameters.removeParameterListener(INPUT_TRIM_ID, this);
-    parameters.removeParameterListener(PROCESS_ID, this);
-    parameters.removeParameterListener(OUTPUT_TRIM_ID, this);
-    parameters.removeParameterListener(BRIGHTNESS_ID, this);
-    parameters.removeParameterListener(TYPE_ID, this);
-}
-
-void PhoenixTapeAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue)
-{
-    if (parameterID == BRIGHTNESS_ID || parameterID == TYPE_ID)
-    {
-        auto brightness = parameters.getParameter(BRIGHTNESS_ID)->getValue() * 2;
-        auto type = parameters.getParameter(TYPE_ID)->getValue() * 4;
-        leftChannel.setMode(brightness, type);
-        rightChannel.setMode(brightness, type);
-    }
-    else if (parameterID == PROCESS_ID)
-    {
-        float processAmount = newValue / 100.0f;
-        leftChannel.setProcessing(processAmount);
-        rightChannel.setProcessing(processAmount);
-    }
-}
-
-const juce::String PhoenixTapeAudioProcessor::getName() const
-{
-    return JucePlugin_Name;
-}
-
-bool PhoenixTapeAudioProcessor::acceptsMidi() const
-{
-    return false;
-}
-
-bool PhoenixTapeAudioProcessor::producesMidi() const
-{
-    return false;
-}
-
-bool PhoenixTapeAudioProcessor::isMidiEffect() const
-{
-    return false;
-}
-
-double PhoenixTapeAudioProcessor::getTailLengthSeconds() const
-{
-    return 0.0;
-}
-
-int PhoenixTapeAudioProcessor::getNumPrograms()
-{
-    return 1;
-}
-
-int PhoenixTapeAudioProcessor::getCurrentProgram()
-{
-    return 0;
-}
-
-void PhoenixTapeAudioProcessor::setCurrentProgram(int index)
+void PhoenixTapeAudioProcessorEditor::VUMeter::resized()
 {
 }
 
-const juce::String PhoenixTapeAudioProcessor::getProgramName(int index)
+void PhoenixTapeAudioProcessorEditor::VUMeter::timerCallback()
 {
-    return {};
+    const float decay = 0.75f;
+    displayLevel = displayLevel * decay + level * (1.0f - decay);
+    repaint();
 }
 
-void PhoenixTapeAudioProcessor::changeProgramName(int index, const juce::String& newName)
+void PhoenixTapeAudioProcessorEditor::VUMeter::setLevel(float newLevel)
 {
+    level = newLevel;
 }
 
-void PhoenixTapeAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
+//==============================================================================
+PhoenixTapeAudioProcessorEditor::PhoenixTapeAudioProcessorEditor(PhoenixTapeAudioProcessor& p)
+    : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    currentSampleRate = sampleRate;
-    currentBlockSize = samplesPerBlock;
+    // Set modern look and feel
+    setLookAndFeel(&modernLookAndFeel);
     
-    // Reset the processors
-    leftChannel.reset();
-    rightChannel.reset();
+    // Input Trim
+    addAndMakeVisible(inputTrimSlider);
+    inputTrimSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    inputTrimSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+    inputTrimSlider.setTextValueSuffix(" dB");
     
-    leftChannel.setSampleRate(sampleRate);
-    rightChannel.setSampleRate(sampleRate);
+    addAndMakeVisible(inputTrimLabel);
+    inputTrimLabel.setText("Input Trim", juce::dontSendNotification);
+    inputTrimLabel.setJustificationType(juce::Justification::centred);
     
-    auto brightness = parameters.getParameter(BRIGHTNESS_ID)->getValue() * 2;
-    auto type = parameters.getParameter(TYPE_ID)->getValue() * 4;
-    auto processAmount = parameters.getParameter(PROCESS_ID)->getValue() / 100.0f;
+    // Process
+    addAndMakeVisible(processSlider);
+    processSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    processSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+    processSlider.setTextValueSuffix("%");
     
-    leftChannel.setMode(brightness, type);
-    rightChannel.setMode(brightness, type);
-    leftChannel.setProcessing(processAmount);
-    rightChannel.setProcessing(processAmount);
+    addAndMakeVisible(processLabel);
+    processLabel.setText("Process", juce::dontSendNotification);
+    processLabel.setJustificationType(juce::Justification::centred);
     
-    prepared = true;
-}
-
-bool PhoenixTapeAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
-{
-    // Accept mono and stereo configurations
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
-        return false;
-
-    // Input and output layout must match
-    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
-        return false;
-
-    return true;
-}
-
-void PhoenixTapeAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue)
-{
-    if (parameterID == BRIGHTNESS_ID || parameterID == TYPE_ID)
-    {
-        auto brightness = parameters.getParameter(BRIGHTNESS_ID)->getValue() * 2;
-        auto type = parameters.getParameter(TYPE_ID)->getValue() * 4;
-        leftChannel.setMode(brightness, type);
-        rightChannel.setMode(brightness, type);
-    }
-    else if (parameterID == PROCESS_ID)
-    {
-        float processAmount = newValue / 100.0f;
-        leftChannel.setProcessing(processAmount);
-        rightChannel.setProcessing(processAmount);
-    }
-}
-
-void PhoenixTapeAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
-{
-    auto state = parameters.copyState();
-    std::unique_ptr<juce::XmlElement> xml(state.createXml());
-    copyXmlToBinary(*xml, destData);
-}
-
-void PhoenixTapeAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
-{
-    std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
+    // Output Trim
+    addAndMakeVisible(outputTrimSlider);
+    outputTrimSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    outputTrimSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+    outputTrimSlider.setTextValueSuffix(" dB");
     
-    if (xmlState.get() != nullptr)
-    {
-        if (xmlState->hasTagName(parameters.state.getType()))
-        {
-            parameters.replaceState(juce::ValueTree::fromXml(*xmlState));
-            
-            auto brightness = parameters.getParameter(BRIGHTNESS_ID)->getValue() * 2;
-            auto type = parameters.getParameter(TYPE_ID)->getValue() * 4;
-            auto processAmount = parameters.getParameter(PROCESS_ID)->getValue() / 100.0f;
-            
-            leftChannel.setMode(brightness, type);
-            rightChannel.setMode(brightness, type);
-            leftChannel.setProcessing(processAmount);
-            rightChannel.setProcessing(processAmount);
-        }
-    }
+    addAndMakeVisible(outputTrimLabel);
+    outputTrimLabel.setText("Output Trim", juce::dontSendNotification);
+    outputTrimLabel.setJustificationType(juce::Justification::centred);
+    
+    // Brightness
+    addAndMakeVisible(brightnessBox);
+    brightnessBox.addItem("Opal", 1);
+    brightnessBox.addItem("Gold", 2);
+    brightnessBox.addItem("Sapphire", 3);
+    
+    addAndMakeVisible(brightnessLabel);
+    brightnessLabel.setText("Brightness", juce::dontSendNotification);
+    brightnessLabel.setJustificationType(juce::Justification::centred);
+    
+    // Type
+    addAndMakeVisible(typeBox);
+    typeBox.addItem("Luminescent", 1);
+    typeBox.addItem("Iridescent", 2);
+    typeBox.addItem("Radiant", 3);
+    typeBox.addItem("Luster", 4);
+    typeBox.addItem("Dark Essence", 5);
+    
+    addAndMakeVisible(typeLabel);
+    typeLabel.setText("Type", juce::dontSendNotification);
+    typeLabel.setJustificationType(juce::Justification::centred);
+    
+    // VU Meters
+    addAndMakeVisible(inputMeter);
+    addAndMakeVisible(outputMeter);
+    
+    // Attachments
+    inputTrimAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.getState(), "input_trim", inputTrimSlider);
+    processAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.getState(), "process", processSlider);
+    outputTrimAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.getState(), "output_trim", outputTrimSlider);
+    brightnessAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.getState(), "brightness", brightnessBox);
+    typeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.getState(), "type", typeBox);
+
+    setSize(500, 400);
 }
 
-bool PhoenixTapeAudioProcessor::hasEditor() const
+PhoenixTapeAudioProcessorEditor::~PhoenixTapeAudioProcessorEditor()
 {
-    return true;
+    setLookAndFeel(nullptr);
 }
 
-juce::AudioProcessorEditor* PhoenixTapeAudioProcessor::createEditor()
+void PhoenixTapeAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    return new PhoenixTapeAudioProcessorEditor(*this);
+    // Background fill
+    g.fillAll(juce::Colour(0xFF1E272E));
+
+    // Logo/title
+    g.setColour(juce::Colour(0xFFF27121));
+    g.setFont(juce::Font(24.0f, juce::Font::bold));
+    g.drawText("Phoenix Saturation", getLocalBounds().reduced(10),
+               juce::Justification::top, true);
 }
 
-const juce::String PhoenixTapeAudioProcessor::getName() const
+void PhoenixTapeAudioProcessorEditor::resized()
 {
-    return JucePlugin_Name;
+    auto bounds = getLocalBounds();
+    const int margin = 10;
+    const int topMargin = 40; // Space for title
+    const int controlHeight = 100;
+    const int labelHeight = 20;
+    const int meterWidth = 30;
+    const int comboBoxWidth = 120;
+    const int comboBoxHeight = 24;
+    
+    bounds.removeFromTop(topMargin);
+    
+    // Meters
+    auto meterBounds = bounds.removeFromRight(meterWidth);
+    outputMeter.setBounds(meterBounds);
+    bounds.removeFromRight(margin);
+    meterBounds = bounds.removeFromLeft(meterWidth);
+    inputMeter.setBounds(meterBounds);
+    bounds.removeFromLeft(margin);
+    
+    // Top row - Input Trim, Process, Output Trim
+    auto topRow = bounds.removeFromTop(controlHeight + labelHeight).reduced(margin);
+    auto sliderWidth = (topRow.getWidth() - margin * 2) / 3;
+    
+    // Input Trim
+    auto inputTrimArea = topRow.removeFromLeft(sliderWidth);
+    inputTrimLabel.setBounds(inputTrimArea.removeFromTop(labelHeight));
+    inputTrimSlider.setBounds(inputTrimArea);
+    
+    topRow.removeFromLeft(margin);
+    
+    // Process
+    auto processArea = topRow.removeFromLeft(sliderWidth);
+    processLabel.setBounds(processArea.removeFromTop(labelHeight));
+    processSlider.setBounds(processArea);
+    
+    topRow.removeFromLeft(margin);
+    
+    // Output Trim
+    auto outputTrimArea = topRow;
+    outputTrimLabel.setBounds(outputTrimArea.removeFromTop(labelHeight));
+    outputTrimSlider.setBounds(outputTrimArea);
+    
+    // Bottom row - Brightness and Type
+    bounds.removeFromTop(margin * 2);
+    auto bottomRow = bounds.removeFromTop(labelHeight + comboBoxHeight).reduced(margin);
+    auto comboArea = (bottomRow.getWidth() - margin) / 2;
+    
+    // Brightness
+    auto brightnessArea = bottomRow.removeFromLeft(comboArea);
+    brightnessLabel.setBounds(brightnessArea.removeFromTop(labelHeight));
+    brightnessBox.setBounds(brightnessArea.withSizeKeepingCentre(comboBoxWidth, comboBoxHeight));
+    
+    bottomRow.removeFromLeft(margin);
+    
+    // Type
+    auto typeArea = bottomRow;
+    typeLabel.setBounds(typeArea.removeFromTop(labelHeight));
+    typeBox.setBounds(typeArea.withSizeKeepingCentre(comboBoxWidth, comboBoxHeight));
 }
-
-bool PhoenixTapeAudioProcessor::acceptsMidi() const
-{
-    return false;
-}
-
-bool PhoenixTapeAudioProcessor::producesMidi() const
-{
-    return false;
-}
-
-bool PhoenixTapeAudioProcessor::isMidiEffect() const
-{
-    return false;
-}
-
-double PhoenixTapeAudioProcessor::getTailLengthSeconds() const
-{
-    return 0.0;
-}
-
-int PhoenixTapeAudioProcessor::getNumPrograms()
-{
-    return 1;
-}
-
-int PhoenixTapeAudioProcessor::getCurrentProgram()
-{
-    return 0;
-}
-
-void PhoenixTapeAudioProcessor::setCurrentProgram(int index)
-{
-}
-
-const juce::String PhoenixTapeAudioProcessor::getProgramName(int index)
-{
-    return {};
-}
-
-void PhoenixTapeAudioProcessor::changeProgramName(int index, const juce::String& newName)
-{
-}
-
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
-{
-    return new PhoenixTapeAudioProcessor();
-}
-
-
 
