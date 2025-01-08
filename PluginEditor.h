@@ -11,12 +11,12 @@
 #pragma once
 #include <JuceHeader.h>
 
-class PhoenixTapeAudioProcessor : public juce::AudioProcessor,
-                                 public juce::AudioProcessorValueTreeState::Listener
+class PhoenixSaturationAudioProcessor : public juce::AudioProcessor,
+                                      public juce::AudioProcessorValueTreeState::Listener
 {
 public:
-    PhoenixTapeAudioProcessor();
-    ~PhoenixTapeAudioProcessor() override;
+    PhoenixSaturationAudioProcessor();
+    ~PhoenixSaturationAudioProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
