@@ -80,10 +80,14 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amount)
 {
     processing = amount;
-    // Auto-gain compensation
-    auto_gain_a1 = 1.0f + processing * 0.28f;
-    auto_gain_a2 = 1.0f + processing * 0.18f;
+    // Improved auto-gain compensation
+    auto_gain_a1 = 1.0f + processing * 0.18f; // reduced from 0.28
+    auto_gain_a2 = 1.0f + processing * 0.12f; // reduced from 0.18
     auto_gain = 1.0f / (auto_gain_a1 * auto_gain_a2);
+    // Add slight boost for higher saturation values
+    if (processing > 0.7f) {
+        auto_gain *= 1.0f + (processing - 0.7f) * 0.3f;
+    }
 }
 
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
