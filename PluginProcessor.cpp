@@ -2,7 +2,7 @@
   ==============================================================================
 
     Phoenix Saturation Plugin
-    Created: 2025-01-08 12:57:43 UTC
+    Created: 2025-01-08 14:52:51 UTC
     Author:  RGLXStudio
 
   ==============================================================================
@@ -81,8 +81,8 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amou
 {
     processing = amount;
     // Improved auto-gain compensation
-    auto_gain_a1 = 1.0f + processing * 0.18f; // reduced from 0.28
-    auto_gain_a2 = 1.0f + processing * 0.12f; // reduced from 0.18
+    auto_gain_a1 = 1.0f + processing * 0.18f;
+    auto_gain_a2 = 1.0f + processing * 0.12f;
     auto_gain = 1.0f / (auto_gain_a1 * auto_gain_a2);
     // Add slight boost for higher saturation values
     if (processing > 0.7f) {
@@ -149,6 +149,8 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
 
     return (y + x) * auto_gain;
 }
+
+// [Rest of your existing PluginProcessor.cpp implementation remains unchanged]
 
 //==============================================================================
 PhoenixSaturationAudioProcessor::PhoenixSaturationAudioProcessor()
