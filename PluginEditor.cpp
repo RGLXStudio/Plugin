@@ -13,8 +13,8 @@
 
 using namespace juce;
 
-PhoenixTapeAudioProcessor::PhoenixProcessor::PhoenixProcessor() 
-    : sr_scale(1.0f), s(0.0f), prev_x(0.0f), 
+PhoenixSaturationAudioProcessor::PhoenixProcessor::PhoenixProcessor()
+    : sr_scale(1.0f), s(0.0f), prev_x(0.0f),
       hpf_k(0.0f), lpf_k(0.0f), a3(0.0f), f1(0.0f),
       p20(0.0f), p24(0.0f), g0(true), sat_type(0),
       model_type(0), processing(0.0f), 
