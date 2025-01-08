@@ -93,14 +93,20 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amou
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
 {
     switch (sat_type) {
-        case 0:  // Opal
-            return std::tanh(x * 1.25f) / 1.25f;
-        case 1:  // Gold
-            return x / (1.0f + std::abs(x * 1.15f));
-        case 2:  // Sapphire
+        case 0:  // Opal - Enhanced tanh with more harmonics
             {
-                float y = std::atan(x * 1.35f) / 1.35f;
-                return y + 0.025f * y * y * y;
+                float y = std::tanh(x * 1.5f);
+                return y + 0.015f * y * y * y;
+            }
+        case 1:  // Gold - Enhanced soft clip with asymmetry
+            {
+                float pos = x > 0 ? x : x * 0.95f;
+                return pos / (1.0f + std::abs(pos * 1.25f));
+            }
+        case 2:  // Sapphire - Enhanced arctangent with harmonics
+            {
+                float y = std::atan(x * 1.45f) / 1.45f;
+                return y + 0.035f * y * y * y;
             }
         default:
             return x;
@@ -111,37 +117,34 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
 {
     const float proc = processing * a3;
     
-    // High-pass filter
-    const float x1 = hpf_k * x + 0.997f * (x - prev_x);
+    // Enhanced high-pass filter
+    const float x1 = hpf_k * x + 0.9985f * (x - prev_x);
     
-    // Pre-saturation
-    const float x2 = x1 * (f1 + 0.15f * proc) + x1;
+    // Enhanced pre-saturation with more harmonics
+    const float x2 = x1 * (f1 + 0.18f * proc) + x1 * (1.0f + 0.02f * proc * proc);
     
-    // Mode-dependent processing
     const float x3 = (!g0) ? x : x2;
     
-    // Saturation stages
+    // Enhanced saturation stages
     float x4;
     if (model_type == 3) {
-        x4 = sat(x2 * proc * 1.25f);
+        x4 = sat(x2 * proc * 1.35f);
     } else {
-        x4 = sat(x2 + 0.02f * proc * x2 * x2);
+        x4 = sat(x2 + 0.025f * proc * x2 * x2);
     }
     
     const float x5 = sat(x4 * proc * p20 + x3);
 
-    // State update and filtering
     prev_x = x;
     s += (x5 - s) * lpf_k;
     float y = proc * (s - x * p24);
 
-    // Model-specific processing
     if (model_type == 3) {
-        y *= 0.65f;
+        y *= 0.7f;
     }
     
     if (model_type == 4) {
-        y = sat(y * 1.15f);
+        y = sat(y * 1.25f);
     }
 
     return (y + x) * auto_gain;
