@@ -1,95 +1,90 @@
 /*
   ==============================================================================
 
-    Phoenix Tape Plugin
-    Created: 2025-01-08 07:06:18 UTC
+    Phoenix Saturation Plugin
+    Created: 2025-01-08 11:02:36 UTC
     Author:  RGLXStudio
 
   ==============================================================================
 */
 
 #pragma once
-#include <JuceHeader.h>
 
-class PhoenixTapeAudioProcessor : public juce::AudioProcessor,
-                                 public juce::AudioProcessorValueTreeState::Listener
+#include <JuceHeader.h>
+#include "PluginProcessor.h"
+
+class PhoenixTapeAudioProcessorEditor : public juce::AudioProcessorEditor
 {
 public:
-    PhoenixTapeAudioProcessor();
-    ~PhoenixTapeAudioProcessor() override;
+    explicit PhoenixTapeAudioProcessorEditor (PhoenixTapeAudioProcessor&);
+    ~PhoenixTapeAudioProcessorEditor() override;
 
-    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
-    void releaseResources() override;
-    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
-    
-    juce::AudioProcessorEditor* createEditor() override;
-    bool hasEditor() const override;
-
-    const juce::String getName() const override;
-
-    bool acceptsMidi() const override;
-    bool producesMidi() const override;
-    bool isMidiEffect() const override;
-    double getTailLengthSeconds() const override;
-
-    int getNumPrograms() override;
-    int getCurrentProgram() override;
-    void setCurrentProgram (int index) override;
-    const juce::String getProgramName (int index) override;
-    void changeProgramName (int index, const juce::String& newName) override;
-
-    void getStateInformation (juce::MemoryBlock& destData) override;
-    void setStateInformation (const void* data, int sizeInBytes) override;
-    
-// Add or update these in the PhoenixTapeAudioProcessor class declaration
-    bool isBusesLayoutSupported (const juce::AudioProcessor::BusesLayout& layouts) const override;
-    void parameterChanged(const juce::String& parameterID, float newValue) override;
-    
-    juce::AudioProcessorValueTreeState& getState() { return parameters; }
+    void paint (juce::Graphics&) override;
+    void resized() override;
 
 private:
-    juce::AudioProcessorValueTreeState parameters;
-    
-    const juce::String INPUT_TRIM_ID = "input_trim";
-    const juce::String PROCESS_ID = "process";
-    const juce::String OUTPUT_TRIM_ID = "output_trim";
-    const juce::String BRIGHTNESS_ID = "brightness";
-    const juce::String TYPE_ID = "type";
-
-    class PhoenixProcessor
+    // Custom LookAndFeel class for modern styling
+    class ModernLookAndFeel : public juce::LookAndFeel_V4
     {
     public:
-        PhoenixProcessor();
-        void setSampleRate(double sampleRate);
-        void reset();
-        void setMode(float brightness, float type);
-        void setProcessing(float amount);
-        float sat(float x);
-        float processSample(float x);
-
-    private:
-        float sr_scale;
-        float s;
-        float prev_x;
-        float hpf_k;
-        float lpf_k;
-        float a3;
-        float f1;
-        float p20;
-        float p24;
-        bool g0;
-        int sat_type;
-        int model_type;
-        float processing;
-        float auto_gain_a1;
-        float auto_gain_a2;
-        float auto_gain;
+        ModernLookAndFeel()
+        {
+            setColour(juce::Slider::thumbColourId, juce::Colour(0xFFF27121));
+            setColour(juce::Slider::rotarySliderFillColourId, juce::Colour(0xFFF27121));
+            setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour(0xFF2D3436));
+            setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xFF2D3436));
+            setColour(juce::ComboBox::outlineColourId, juce::Colour(0xFFF27121));
+            setColour(juce::ComboBox::buttonColourId, juce::Colour(0xFFF27121));
+        }
     };
 
-    PhoenixProcessor leftChannel, rightChannel;
-    double currentSampleRate = 44100.0;
-    int currentBlockSize = 512;
-    bool prepared = false;
+    // Reference to the processor
+    PhoenixTapeAudioProcessor& audioProcessor;
+
+    // Modern look and feel instance
+    ModernLookAndFeel modernLookAndFeel;
+
+    // Sliders
+    juce::Slider inputTrimSlider;
+    juce::Slider processSlider;
+    juce::Slider outputTrimSlider;
+
+    // Labels
+    juce::Label inputTrimLabel;
+    juce::Label processLabel;
+    juce::Label outputTrimLabel;
+    juce::Label brightnessLabel;
+    juce::Label typeLabel;
+
+    // Combo boxes
+    juce::ComboBox brightnessBox;
+    juce::ComboBox typeBox;
+
+    // Value tree attachments
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> inputTrimAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> processAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputTrimAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> brightnessAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> typeAttachment;
+
+    // VU Meter component
+    class VUMeter : public juce::Component,
+                   public juce::Timer
+    {
+    public:
+        VUMeter();
+        void paint(juce::Graphics& g) override;
+        void resized() override;
+        void timerCallback() override;
+        void setLevel(float newLevel);
     
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PhoenixTapeAudioProcessor)
+    private:
+        float level = 0.0f;
+        float displayLevel = 0.0f;
+    };
+
+    VUMeter inputMeter;
+    VUMeter outputMeter;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PhoenixTapeAudioProcessorEditor)
 };
