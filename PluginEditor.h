@@ -2,96 +2,52 @@
   ==============================================================================
 
     Phoenix Saturation Plugin
-    Created: 2025-01-08 08:55:04 UTC
+    Created: 2025-01-08 12:54:16 UTC
     Author:  RGLXStudio
 
   ==============================================================================
 */
 
 #pragma once
-#include <JuceHeader.h>
 
-class PhoenixSaturationAudioProcessor : public juce::AudioProcessor,
-                                      public juce::AudioProcessorValueTreeState::Listener
+#include <JuceHeader.h>
+#include "PluginProcessor.h"
+
+class PhoenixSaturationAudioProcessorEditor : public juce::AudioProcessorEditor
 {
 public:
-    PhoenixSaturationAudioProcessor();
-    ~PhoenixSaturationAudioProcessor() override;
+    explicit PhoenixSaturationAudioProcessorEditor(PhoenixSaturationAudioProcessor&);
+    ~PhoenixSaturationAudioProcessorEditor() override;
 
-    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
-    void releaseResources() override;
-    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
-    
-    juce::AudioProcessorEditor* createEditor() override;
-    bool hasEditor() const override;
-
-    const juce::String getName() const override;
-
-    bool acceptsMidi() const override;
-    bool producesMidi() const override;
-    bool isMidiEffect() const override;
-    double getTailLengthSeconds() const override;
-
-    int getNumPrograms() override;
-    int getCurrentProgram() override;
-    void setCurrentProgram (int index) override;
-    const juce::String getProgramName (int index) override;
-    void changeProgramName (int index, const juce::String& newName) override;
-
-    void getStateInformation (juce::MemoryBlock& destData) override;
-    void setStateInformation (const void* data, int sizeInBytes) override;
-    
-    bool isBusesLayoutSupported (const juce::AudioProcessor::BusesLayout& layouts) const override;
-    void parameterChanged(const juce::String& parameterID, float newValue) override;
-    
-    juce::AudioProcessorValueTreeState& getState() { return parameters; }
+    void paint(juce::Graphics&) override;
+    void resized() override;
 
 private:
-    juce::AudioProcessorValueTreeState parameters;
-    
-    // Parameter IDs as static constexpr for better optimization
-    static constexpr const char* INPUT_TRIM_ID = "input_trim";
-    static constexpr const char* PROCESS_ID = "process";
-    static constexpr const char* OUTPUT_TRIM_ID = "output_trim";
-    static constexpr const char* BRIGHTNESS_ID = "brightness";
-    static constexpr const char* TYPE_ID = "type";
+    // Reference to our processor
+    PhoenixSaturationAudioProcessor& audioProcessor;
 
-    class PhoenixProcessor
-    {
-    public:
-        PhoenixProcessor();
-        void setSampleRate(double sampleRate);
-        void reset();
-        void setMode(float brightness, float type);
-        void setProcessing(float amount);
-        float processSample(float x);
+    // Sliders
+    juce::Slider inputGainSlider;
+    juce::Slider saturationSlider;
+    juce::Slider outputGainSlider;
 
-    private:
-        float sat(float x);
-        
-        // Processing parameters
-        float sr_scale;
-        float s;
-        float prev_x;
-        float hpf_k;
-        float lpf_k;
-        float a3;
-        float f1;
-        float p20;
-        float p24;
-        bool g0;
-        int sat_type;
-        int model_type;
-        float processing;
-        float auto_gain_a1;
-        float auto_gain_a2;
-        float auto_gain;
-    };
+    // Labels
+    juce::Label inputGainLabel;
+    juce::Label saturationLabel;
+    juce::Label outputGainLabel;
+    juce::Label typeLabel;
+    juce::Label brightnessLabel;
 
-    PhoenixProcessor leftChannel, rightChannel;
-    double currentSampleRate{44100.0};
-    int currentBlockSize{512};
-    std::atomic<bool> prepared{false};
-    
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PhoenixTapeAudioProcessor)
+    // Combo boxes
+    juce::ComboBox typeComboBox;
+    juce::ComboBox brightnessComboBox;
+
+    // Parameter attachments
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> inputGainAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> saturationAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputGainAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> typeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> brightnessAttachment;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PhoenixSaturationAudioProcessorEditor)
 };
