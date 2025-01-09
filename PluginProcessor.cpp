@@ -42,28 +42,28 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness
     model_type = static_cast<int>(type);
     sat_type = static_cast<int>(brightness);
 
-    // Enhanced filter coefficients for stronger harmonics
-    hpf_k = 0.065f * sr_scale;  // Increased from 0.045f
-    lpf_k = 0.072f * sr_scale;  // Increased from 0.052f
+    // Smoother filter coefficients
+    hpf_k = 0.045f * sr_scale;  // Return to original value
+    lpf_k = 0.052f * sr_scale;  // Return to original value
     
-    // More aggressive character settings
-    f1 = 0.75f;      // Increased from 0.55f
-    p20 = 0.45f;     // Increased from 0.25f
-    p24 = 0.38f;     // Increased from 0.28f
-    a3 = 0.65f;      // Increased from 0.35f
+    // More balanced character settings
+    f1 = 0.55f;      // Return to original
+    p20 = 0.25f;     // Return to original
+    p24 = 0.28f;     // Return to original
+    a3 = 0.35f;      // Return to original
     g0 = true;
 
-    // Enhanced model-specific adjustments
+    // Balanced model-specific adjustments
     switch (model_type) {
         case 1:  // Iridescent
-            f1 = 0.68f;     // Increased from 0.48f
-            p20 = 0.49f;    // Increased from 0.29f
-            a3 = 0.67f;     // Increased from 0.37f
+            f1 = 0.48f;
+            p20 = 0.29f;
+            a3 = 0.37f;
             break;
         case 2:  // Radiant
-            f1 = 0.64f;     // Increased from 0.44f
-            p24 = 0.53f;    // Increased from 0.33f
-            a3 = 0.69f;     // Increased from 0.39f
+            f1 = 0.44f;
+            p24 = 0.33f;
+            a3 = 0.39f;
             break;
         case 3:  // Luster
             a3 = 0.76f;     // Increased from 0.36f
@@ -82,43 +82,49 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amount)
 {
     processing = amount;
-    // More aggressive gain staging
-    auto_gain_a1 = 1.0f + processing * 0.45f;    // Increased from 0.18f
-    auto_gain_a2 = 1.0f + processing * 0.35f;    // Increased from 0.12f
+    // More balanced gain staging
+    auto_gain_a1 = 1.0f + processing * 0.18f;    // Return to original
+    auto_gain_a2 = 1.0f + processing * 0.12f;    // Return to original
     auto_gain = 1.0f / (auto_gain_a1 * auto_gain_a2);
     
-    // Enhanced boost for higher saturation
-    if (processing > 0.5f) {  // Threshold lowered from 0.7f
-        auto_gain *= 1.0f + (processing - 0.5f) * 0.6f;  // Increased from 0.3f
+    // Gentler boost
+    if (processing > 0.7f) {  // Return to original threshold
+        auto_gain *= 1.0f + (processing - 0.7f) * 0.3f;  // Return to original
     }
 }
 
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
 {
     switch (sat_type) {
-        case 0:  // Opal - Much stronger harmonics
+        case 0:  // Opal - Smooth, warm harmonics
             {
-                float y = std::tanh(x * 2.8f);  // Increased from 1.5f
+                float y = std::tanh(x * 1.5f);  // Reduced from 2.8f for smoother response
                 float y2 = y * y;
                 float y3 = y2 * y;
-                float y5 = y3 * y2;
-                return y + 0.15f * y3 + 0.035f * y5;  // Added 5th harmonic
+                return y + 0.1f * y3;  // Simplified harmonics, removed y5 term
             }
-        case 1:  // Gold - Enhanced asymmetric distortion
+            
+        case 1:  // Gold - Balanced asymmetric distortion
             {
-                float pos = x > 0 ? x : x * 0.85f;  // More asymmetry
-                float base = pos / (1.0f + std::abs(pos * 2.25f));  // Increased from 1.25f
-                return base + 0.1f * base * base * base;  // Added harmonics
+                float pos = x > 0 ? x : x * 0.92f;  // Reduced asymmetry from 0.85f
+                float base = pos / (1.0f + std::abs(pos * 1.25f));  // Reduced from 2.25f
+                float base2 = base * base;
+                return base + 0.05f * base2 * base;  // Reduced harmonic content from 0.1f
             }
-        case 2:  // Sapphire - Aggressive harmonics
+            
+        case 2:  // Sapphire - Cleaner, focused harmonics
             {
-                float y = std::atan(x * 2.85f) / 1.85f;  // Increased drive
+                float y = std::atan(x * 1.85f) / 1.57f;  // Reduced drive from 2.85f, changed scaling
                 float y2 = y * y;
                 float y3 = y2 * y;
-                return y + 0.25f * y3 + 0.05f * y2 * y3;  // Added higher order harmonics
+                return y + 0.15f * y3;  // Simplified harmonics, removed higher order terms
             }
-        default:
-            return x;
+            
+        default:  // Transparent - Linear passthrough with subtle enhancement
+            {
+                float clip = x > 1.0f ? 1.0f : (x < -1.0f ? -1.0f : x);
+                return clip + 0.02f * clip * clip * clip;  // Very subtle harmonics
+            }
     }
 }
 
@@ -126,38 +132,34 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
 {
     const float proc = processing * a3;
     
-    // More aggressive high-pass filter
-    const float x1 = hpf_k * x + 0.9965f * (x - prev_x);
+    // Gentler high-pass filter
+    const float x1 = hpf_k * x + 0.9985f * (x - prev_x);  // Changed from 0.9965f
     
-    // Enhanced pre-saturation stage
-    const float x2 = x1 * (f1 + 0.38f * proc) + x1 * (1.0f + 0.15f * proc * proc);
+    // More balanced pre-saturation
+    const float x2 = x1 * (f1 + 0.25f * proc) + x1 * (1.0f + 0.08f * proc * proc);
     
     const float x3 = (!g0) ? x : x2;
     
-    // More aggressive saturation stages
+    // Gentler saturation stages
     float x4;
     if (model_type == 3) {  // Luster
-        x4 = sat(x2 * proc * 2.85f);  // Increased from 1.35f
+        x4 = sat(x2 * proc * 1.35f);  // Return to original value
     } else {
-        x4 = sat(x2 + 0.15f * proc * x2 * x2);  // Increased from 0.025f
+        x4 = sat(x2 + 0.025f * proc * x2 * x2);  // Return to original value
     }
     
-    const float x5 = sat(x4 * proc * p20 + x3);
+    // Add smoothing to prevent alternating samples
+    const float smooth_amount = 0.1f;  // Add this
+    s = (1.0f - smooth_amount) * s + smooth_amount * x4;  // Smooth the signal
+    
+    const float x5 = sat(s * proc * p20 + x3);
 
     prev_x = x;
     s += (x5 - s) * lpf_k;
     float y = proc * (s - x * p24);
 
-    if (model_type == 3) {  // Luster
-        y *= 1.4f;  // Increased from 0.7f
-    }
-    
-    if (model_type == 4) {  // Dark Essence
-        y = sat(y * 2.45f);  // Increased from 1.25f
-    }
-
-    // Additional harmonics stage
-    y = y + 0.15f * y * y * y;  // Add global harmonic enhancement
+    // Remove the aggressive enhancement
+    y = y + 0.05f * y * y * y;  // Reduced from 0.15f
 
     return (y + x) * auto_gain;
 }
