@@ -26,6 +26,9 @@ private:
     // Reference to our processor
     PhoenixSaturationAudioProcessor& audioProcessor;
 
+    // Title Label
+    juce::Label titleLabel;
+
     // Sliders
     juce::Slider inputGainSlider;
     juce::Slider saturationSlider;
