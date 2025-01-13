@@ -98,32 +98,64 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
     switch (sat_type) {
         case 0:  // Opal - Smooth, warm harmonics
             {
-                float y = std::tanh(x * 1.5f);  // Reduced from 2.8f for smoother response
+                // Update envelope follower
+                envelope = std::max(std::abs(x), envelope * envFollowCoeff);
+                float warmth = 1.0f + 0.2f * envelope;
+                
+                // Soft saturation with warm harmonics
+                float y = std::tanh(x * 1.5f * warmth);
                 float y2 = y * y;
                 float y3 = y2 * y;
-                return y + 0.1f * y3;  // Simplified harmonics, removed y5 term
+                float y5 = y3 * y2;
+                
+                return y + 0.1f * y3 - 0.05f * y5;
             }
             
         case 1:  // Gold - Balanced asymmetric distortion
             {
-                float pos = x > 0 ? x : x * 0.92f;  // Reduced asymmetry from 0.85f
-                float base = pos / (1.0f + std::abs(pos * 1.25f));  // Reduced from 2.25f
+                // Dynamic response
+                envelope = std::max(std::abs(x), envelope * envFollowCoeff);
+                float dynamicDrive = 1.0f + 0.3f * envelope;
+                
+                // Asymmetric processing
+                float pos = x > 0 ? x : x * 0.95f;
+                float drive = 1.8f * dynamicDrive;
+                float base = pos / (1.0f + std::abs(pos * drive));
+                
+                // Harmonics generation
                 float base2 = base * base;
-                return base + 0.05f * base2 * base;  // Reduced harmonic content from 0.1f
+                float base3 = base2 * base;
+                float base5 = base3 * base2;
+                
+                // Combine harmonics with careful balance
+                return base + 0.15f * base2 + 0.08f * base3 - 0.02f * base5;
             }
             
         case 2:  // Sapphire - Cleaner, focused harmonics
             {
-                float y = std::atan(x * 1.85f) / 1.57f;  // Reduced drive from 2.85f, changed scaling
+                // Dynamic adaptation
+                envelope = std::max(std::abs(x), envelope * envFollowCoeff);
+                float clarity = 1.0f + 0.15f * envelope;
+                
+                // Main saturation with focus on clarity
+                float y = std::atan(x * 1.85f * clarity) / 1.57f;
                 float y2 = y * y;
                 float y3 = y2 * y;
-                return y + 0.15f * y3;  // Simplified harmonics, removed higher order terms
+                float y5 = y3 * y2;
+                
+                // Balanced harmonic mix
+                return y + 0.12f * y3 - 0.03f * y5;
             }
             
         default:  // Transparent - Linear passthrough with subtle enhancement
             {
+                // Soft limiting
                 float clip = x > 1.0f ? 1.0f : (x < -1.0f ? -1.0f : x);
-                return clip + 0.02f * clip * clip * clip;  // Very subtle harmonics
+                float clip2 = clip * clip;
+                float clip3 = clip2 * clip;
+                
+                // Very subtle harmonics
+                return clip + 0.02f * clip3;
             }
     }
 }
