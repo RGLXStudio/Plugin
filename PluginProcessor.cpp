@@ -69,14 +69,14 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness
 
 if (model_type == 0) { // Luminescent
     if (sat_type == 1) { // Gold
-        hpf_k = 0.038f * sr_scale;  // Reduced further from 0.041f
-        lpf_k = 0.044f * sr_scale;  // Reduced further from 0.047f
+        hpf_k = 0.035f * sr_scale;  // Reduced from 0.038f
+        lpf_k = 0.041f * sr_scale;  // Reduced from 0.044f
         
         // Adjusted character parameters
-        f1 = 0.48f;      // Reduced from 0.51f
-        p20 = 0.29f;     // Increased from 0.27f
-        p24 = 0.31f;     // Increased from 0.29f
-        a3 = 0.38f;      // Increased from 0.36f
+        f1 = 0.46f;      // Reduced from 0.48f
+        p20 = 0.31f;     // Increased from 0.29f
+        p24 = 0.33f;     // Increased from 0.31f
+        a3 = 0.40f;      // Increased from 0.38f
     }
 }
 
@@ -112,17 +112,17 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amou
     
     if (sat_type == 1) { // Gold
         // Refined gain staging for Gold mode
-        auto_gain_a1 = 1.0f + processing * 0.22f;    // Increased from 0.15f
-        auto_gain_a2 = 1.0f + processing * 0.16f;    // Increased from 0.11f
+        auto_gain_a1 = 1.0f + processing * 0.28f;    // Increased from 0.22f
+        auto_gain_a2 = 1.0f + processing * 0.21f;    // Increased from 0.16f
         auto_gain = 1.0f / (auto_gain_a1 * auto_gain_a2);
         
         // Additional compensation at high processing values
         if (processing > 0.65f) {
-            auto_gain *= 1.0f + (processing - 0.65f) * 0.3f;  // Increased from 0.2f
+            auto_gain *= 1.0f + (processing - 0.65f) * 0.35f;  // Increased from 0.3f
         }
         
         // Additional level compensation for Gold mode
-        auto_gain *= 1.25f;  // Added overall gain boost
+        auto_gain *= 1.45f;  // Increased from 1.25f
     }
     else {
         // Default gain staging for other modes
@@ -172,8 +172,8 @@ case 1:  // Gold - Balanced asymmetric distortion
     float base3 = base2 * base;
     float base5 = base3 * base2;
     
-    // Combined harmonics + level adjustment
-    return (base + 0.12f * base2 + 0.06f * base3 - 0.015f * base5) * 1.42f;  // Increased from 0.965f to 1.42f
+    // Combined harmonics with adjusted coefficients and scaling
+    return (base + 0.12f * base2 + 0.06f * base3 - 0.015f * base5) * 1.85f;  // Increased from 1.42f to 1.85f
 }
             
         case 2:  // Sapphire - Cleaner, focused harmonics
