@@ -128,24 +128,31 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
             }
             
         case 1:  // Gold - Balanced asymmetric distortion
-            {
-                // Dynamic response
-                envelope = std::max(std::abs(x), envelope * envFollowCoeff);
-                float dynamicDrive = 1.0f + 0.3f * envelope;
-                
-                // Asymmetric processing
-                float pos = x > 0 ? x : x * 0.95f;
-                float drive = 1.8f * dynamicDrive;
-                float base = pos / (1.0f + std::abs(pos * drive));
-                
-                // Harmonics generation
-                float base2 = base * base;
-                float base3 = base2 * base;
-                float base5 = base3 * base2;
-                
-                // Combine harmonics with careful balance
-                return base + 0.15f * base2 + 0.08f * base3 - 0.02f * base5;
-            }
+        {
+            // Update envelope follower for dynamic control
+            envelope = std::max(std::abs(x), envelope * 0.995f);  // Slightly slower envelope
+            
+            // Dynamic drive adjustment
+            float dynamicDrive = 1.0f + 0.25f * envelope;
+            
+            // Asymmetric processing with refined curve
+            float pos = x > 0 ? x : x * 0.97f;  // Less asymmetric than before
+            float drive = 1.65f * dynamicDrive;  // Reduced from 1.8f
+            
+            // Main waveshaping
+            float base = pos / (1.0f + std::abs(pos * drive));
+            
+            // Harmonic generation with careful balance
+            float base2 = base * base;
+            float base3 = base2 * base;
+            float base5 = base3 * base2;
+            
+            // Combine harmonics with adjusted coefficients
+            float shaped = base + 0.12f * base2 + 0.06f * base3 - 0.015f * base5;
+            
+            // Output level adjustment to match reference
+            return shaped * 0.965f;  // Added scaling factor
+        }
             
         case 2:  // Sapphire - Cleaner, focused harmonics
             {
