@@ -176,39 +176,27 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
     }
 }
 
-float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
+float PhoenixProcessor::processSample(float x)
 {
+    // Input stage with high-pass filter
+    const float x1 = hpf_k * x + (1.0f - hpf_k) * (x - prev_x);
+    
+    // Pre-saturation
     const float proc = processing * a3;
-    
-    // Gentler high-pass filter
-    const float x1 = hpf_k * x + 0.9985f * (x - prev_x);  // Changed from 0.9965f
-    
-    // More balanced pre-saturation
     const float x2 = x1 * (f1 + 0.25f * proc) + x1 * (1.0f + 0.08f * proc * proc);
     
-    const float x3 = (!g0) ? x : x2;
+    // Apply saturation
+    const float saturated = sat(g0 ? x2 : x);
     
-    // Gentler saturation stages
-    float x4;
-    if (model_type == 3) {  // Luster
-        x4 = sat(x2 * proc * 1.35f);  // Return to original value
-    } else {
-        x4 = sat(x2 + 0.025f * proc * x2 * x2);  // Return to original value
-    }
+    // Smoothing
+    const float smooth_amount = 0.08f;
+    s = (1.0f - smooth_amount) * s + smooth_amount * saturated;
     
-    // Add smoothing to prevent alternating samples
-    const float smooth_amount = 0.1f;  // Add this
-    s = (1.0f - smooth_amount) * s + smooth_amount * x4;  // Smooth the signal
-    
-    const float x5 = sat(s * proc * p20 + x3);
-
+    // Post-processing and output
     prev_x = x;
-    s += (x5 - s) * lpf_k;
     float y = proc * (s - x * p24);
-
-    // Remove the aggressive enhancement
-    y = y + 0.05f * y * y * y;  // Reduced from 0.15f
-
+    
+    // Final output with auto-gain
     return (y + x) * auto_gain;
 }
 
