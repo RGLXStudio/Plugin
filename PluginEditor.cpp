@@ -2,7 +2,7 @@
   ==============================================================================
 
     Phoenix Saturation Plugin
-    Created: 2025-01-08 13:05:15 UTC
+    Created: 2025-01-13 15:30:59 UTC
     Author:  RGLXStudio
 
   ==============================================================================
@@ -11,154 +11,103 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-using namespace juce;
-
-//==============================================================================
 PhoenixSaturationAudioProcessorEditor::PhoenixSaturationAudioProcessorEditor(PhoenixSaturationAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    // Set window size
-    setSize(400, 300);
-
-    // Initialize sliders
+    // Input Gain
     addAndMakeVisible(inputGainSlider);
-    inputGainSlider.setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
-    inputGainSlider.setRange(-12.0, 12.0, 0.1);
-    inputGainSlider.setTextBoxStyle(Slider::TextBoxBelow, false, 90, 20);
-    inputGainSlider.setValue(0.0);
-
-    addAndMakeVisible(saturationSlider);
-    saturationSlider.setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
-    saturationSlider.setRange(0.0, 100.0, 0.1);
-    saturationSlider.setTextBoxStyle(Slider::TextBoxBelow, false, 90, 20);
-    saturationSlider.setValue(0.0);
-
-    addAndMakeVisible(outputGainSlider);
-    outputGainSlider.setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
-    outputGainSlider.setRange(-12.0, 12.0, 0.1);
-    outputGainSlider.setTextBoxStyle(Slider::TextBoxBelow, false, 90, 20);
-    outputGainSlider.setValue(0.0);
-
-    // Initialize labels with modern font
+    inputGainSlider.setSliderStyle(juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
+    inputGainSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    inputGainLabel.setText("Input", juce::dontSendNotification);
+    inputGainLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(inputGainLabel);
-    inputGainLabel.setText("Input Gain", dontSendNotification);
-    inputGainLabel.setJustificationType(Justification::centred);
-    inputGainLabel.setFont(Font(16.0f));
 
+    // Saturation
+    addAndMakeVisible(saturationSlider);
+    saturationSlider.setSliderStyle(juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
+    saturationSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    saturationLabel.setText("Drive", juce::dontSendNotification);
+    saturationLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(saturationLabel);
-    saturationLabel.setText("Saturation", dontSendNotification);
-    saturationLabel.setJustificationType(Justification::centred);
-    saturationLabel.setFont(Font(16.0f));
 
+    // Output Gain
+    addAndMakeVisible(outputGainSlider);
+    outputGainSlider.setSliderStyle(juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
+    outputGainSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    outputGainLabel.setText("Output", juce::dontSendNotification);
+    outputGainLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(outputGainLabel);
-    outputGainLabel.setText("Output Gain", dontSendNotification);
-    outputGainLabel.setJustificationType(Justification::centred);
-    outputGainLabel.setFont(Font(16.0f));
 
-    // Initialize ComboBoxes
+    // Type ComboBox
     addAndMakeVisible(typeComboBox);
-    typeComboBox.addItem("Luminescent", 1);
-    typeComboBox.addItem("Iridescent", 2);
-    typeComboBox.addItem("Radiant", 3);
-    typeComboBox.addItem("Luster", 4);
-    typeComboBox.addItem("Dark Essence", 5);
-    typeComboBox.setSelectedItemIndex(0);
-
-    addAndMakeVisible(brightnessComboBox);
-    brightnessComboBox.addItem("Opal", 1);
-    brightnessComboBox.addItem("Gold", 2);
-    brightnessComboBox.addItem("Sapphire", 3);
-    brightnessComboBox.setSelectedItemIndex(0);
-
-    // Initialize ComboBox labels
+    typeLabel.setText("Type", juce::dontSendNotification);
+    typeLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(typeLabel);
-    typeLabel.setText("Type", dontSendNotification);
-    typeLabel.setJustificationType(Justification::centred);
-    typeLabel.setFont(Font(16.0f));
 
+    // Brightness ComboBox
+    addAndMakeVisible(brightnessComboBox);
+    brightnessLabel.setText("Brightness", juce::dontSendNotification);
+    brightnessLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(brightnessLabel);
-    brightnessLabel.setText("Brightness", dontSendNotification);
-    brightnessLabel.setJustificationType(Justification::centred);
-    brightnessLabel.setFont(Font(16.0f));
 
-    // Set up parameter attachments
-    inputGainAttachment = std::make_unique<AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getState(), "input_trim", inputGainSlider);
-    saturationAttachment = std::make_unique<AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getState(), "process", saturationSlider);
-    outputGainAttachment = std::make_unique<AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getState(), "output_trim", outputGainSlider);
-    typeAttachment = std::make_unique<AudioProcessorValueTreeState::ComboBoxAttachment>(
-        audioProcessor.getState(), "type", typeComboBox);
-    brightnessAttachment = std::make_unique<AudioProcessorValueTreeState::ComboBoxAttachment>(
-        audioProcessor.getState(), "brightness", brightnessComboBox);
+    // Attachments
+    inputGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.getState(), INPUT_TRIM_ID, inputGainSlider);
+    
+    saturationAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.getState(), PROCESS_ID, saturationSlider);
+    
+    outputGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.getState(), OUTPUT_TRIM_ID, outputGainSlider);
+    
+    typeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.getState(), TYPE_ID, typeComboBox);
+    
+    brightnessAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.getState(), BRIGHTNESS_ID, brightnessComboBox);
+
+    setSize(400, 300);
 }
 
 PhoenixSaturationAudioProcessorEditor::~PhoenixSaturationAudioProcessorEditor()
 {
 }
 
-void PhoenixSaturationAudioProcessorEditor::paint(Graphics& g)
+void PhoenixSaturationAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    // Fill background
-    g.fillAll(getLookAndFeel().findColour(ResizableWindow::backgroundColourId));
-
-    // Draw title
-    g.setColour(Colours::white);
-    g.setFont(Font(24.0f).boldened());
-    g.drawText("Phoenix Saturation", getLocalBounds().removeFromTop(40),
-               Justification::centred, true);
+    g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
 }
 
 void PhoenixSaturationAudioProcessorEditor::resized()
 {
-    auto bounds = getLocalBounds();
-    const int margin = 10;
-    const int labelHeight = 20;
-    const int sliderSize = 100;
-    const int comboBoxWidth = 120;
-    const int comboBoxHeight = 24;
+    auto area = getLocalBounds();
+    
+    // Top row - ComboBoxes
+    auto topRow = area.removeFromTop(60);
+    auto comboBoxWidth = topRow.getWidth() / 2;
+    
+    typeLabel.setBounds(topRow.removeFromLeft(comboBoxWidth).removeFromTop(20));
+    typeComboBox.setBounds(topRow.removeFromLeft(comboBoxWidth).removeFromBottom(30));
+    
+    brightnessLabel.setBounds(topRow.removeFromLeft(comboBoxWidth).removeFromTop(20));
+    brightnessComboBox.setBounds(topRow.removeFromLeft(comboBoxWidth).removeFromBottom(30));
 
-    // Reserve space for title
-    bounds.removeFromTop(40);
-
-    // Layout for sliders
-    auto sliderArea = bounds.removeFromTop(sliderSize + labelHeight);
-    auto w = (sliderArea.getWidth() - 2 * margin) / 3;
-
+    // Main controls row
+    auto controlsRow = area.removeFromTop(180);
+    auto sliderWidth = controlsRow.getWidth() / 3;
+    
     // Input Gain
-    auto inputArea = sliderArea.removeFromLeft(w);
-    inputGainLabel.setBounds(inputArea.removeFromTop(labelHeight));
+    auto inputArea = controlsRow.removeFromLeft(sliderWidth);
+    inputGainLabel.setBounds(inputArea.removeFromTop(20));
     inputGainSlider.setBounds(inputArea);
-
-    sliderArea.removeFromLeft(margin);
-
+    
     // Saturation
-    auto saturationArea = sliderArea.removeFromLeft(w);
-    saturationLabel.setBounds(saturationArea.removeFromTop(labelHeight));
+    auto saturationArea = controlsRow.removeFromLeft(sliderWidth);
+    saturationLabel.setBounds(saturationArea.removeFromTop(20));
     saturationSlider.setBounds(saturationArea);
-
-    sliderArea.removeFromLeft(margin);
-
+    
     // Output Gain
-    auto outputArea = sliderArea;
-    outputGainLabel.setBounds(outputArea.removeFromTop(labelHeight));
+    auto outputArea = controlsRow.removeFromLeft(sliderWidth);
+    outputGainLabel.setBounds(outputArea.removeFromTop(20));
     outputGainSlider.setBounds(outputArea);
-
-    // Layout for combo boxes
-    bounds.removeFromTop(margin * 2);
-    auto comboArea = bounds.removeFromTop(labelHeight + comboBoxHeight);
-    auto comboWidth = (comboArea.getWidth() - margin) / 2;
-
-    // Type
-    auto typeArea = comboArea.removeFromLeft(comboWidth);
-    typeLabel.setBounds(typeArea.removeFromTop(labelHeight));
-    typeComboBox.setBounds(typeArea.withSizeKeepingCentre(comboBoxWidth, comboBoxHeight));
-
-    comboArea.removeFromLeft(margin);
-
-    // Brightness
-    auto brightnessArea = comboArea;
-    brightnessLabel.setBounds(brightnessArea.removeFromTop(labelHeight));
-    brightnessComboBox.setBounds(brightnessArea.withSizeKeepingCentre(comboBoxWidth, comboBoxHeight));
 }
