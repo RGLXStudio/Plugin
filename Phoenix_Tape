@@ -1,0 +1,197 @@
+desc:Phoenix Tape
+//author:vladg/sound
+
+slider1:0<-6,6,0.01>Input Trim, dB
+slider2:0<0,100,0.01>Process, %
+slider3:0<-6,6,0.01>Output Trim, dB
+slider4:1<0,2,1{Opal,Gold,Sapphire}>Brightness
+slider5:0<0,4,1{Luminiscent,Iridescent,Radiant,Luster,Dark Essence}>Type
+
+@init
+
+function DB_TO_K(x)
+(
+  10 ^ (x / 20)
+);
+
+/*
+ * Phoenix
+ */
+ 
+function Phoenix_setSampleRate(sample_rate)
+(
+  // original Phoenix has fixed scaling depending on sample rate: {1.0, 0.5, 0.25}
+  this.sr_scale = 1.0 / ceil(sample_rate / 44100.0);
+);
+
+function Phoenix_reset()
+(
+  this.s = 0.0;
+  this.prev_x = 0.0;
+);
+
+function Phoenix_setMode(brightness, type)
+(
+  (type == 0) ? (   // Luminescent
+  
+    (brightness == 0) ? ( this.hpf_k = 0.625; this.lpf_k = 0.1875; );   // Opal
+    (brightness == 1) ? ( this.hpf_k = 0.4375; this.lpf_k = 0.3125; );  // Gold
+    (brightness == 2) ? ( this.hpf_k = 0.1875; this.lpf_k = 0.375; );   // Sapphire
+  
+    this.a3 = 0.25;
+    this.f1 = 0.75;
+    this.p20 = 0.3125;
+    this.p24 = 0.0625;
+    this.g0 = 1;
+    this.sat_type = 0;
+
+    this.auto_gain_a1 = -0.416;
+    this.auto_gain_a2 = 0.092;
+
+  );
+  (type == 1) ? (   // Iridescent
+  
+    (brightness == 0) ? ( this.hpf_k = 0.625; this.lpf_k = 0.1875; );   // Opal
+    (brightness == 1) ? ( this.hpf_k = 0.375; this.lpf_k = 0.3125; );  // Gold
+    (brightness == 2) ? ( this.hpf_k = 0.3125; this.lpf_k = 0.5; );   // Sapphire
+  
+    this.a3 = 0.25;
+    this.f1 = 0.875;
+    this.p20 = 0.3125;
+    this.p24 = 0.0625;
+    this.g0 = 1;
+    this.sat_type = 0;
+
+    this.auto_gain_a1 = -0.393;
+    this.auto_gain_a2 = 0.082;
+
+  );
+  (type == 2) ? (   // Radiant
+  
+    (brightness == 0) ? ( this.hpf_k = 0.75; this.lpf_k = 0.125; );   // Opal
+    (brightness == 1) ? ( this.hpf_k = 0.45629901; this.lpf_k = 0.375; );  // Gold
+    (brightness == 2) ? ( this.hpf_k = 0.375; this.lpf_k = 0.5; );   // Sapphire
+  
+    this.a3 = 0.375;
+    this.f1 = 0.75;
+    this.p20 = 0.1875;
+    this.p24 = 0.0125;
+    this.g0 = 0;
+    this.sat_type = 1;
+
+    this.auto_gain_a1 = -0.441;
+    this.auto_gain_a2 = 0.103;
+
+  );
+  (type == 3) ? (   // Luster
+  
+    (brightness == 0) ? ( this.hpf_k = 0.75; this.lpf_k = 0.125; );   // Opal
+    (brightness == 1) ? ( this.hpf_k = 0.45629901; this.lpf_k = 0.375; );  // Gold
+    (brightness == 2) ? ( this.hpf_k = 0.375; this.lpf_k = 0.5625; );   // Sapphire
+  
+    this.a3 = 1.0;
+    this.f1 = 0.6875;
+    this.p20 = 0.27343899;
+    this.p24 = 0.1171875;
+    this.g0 = 0;
+    this.sat_type = 2;
+
+    this.auto_gain_a1 = -0.712;
+    this.auto_gain_a2 = 0.172;
+
+  );
+  (type == 4) ? (   // Dark Essence
+  
+    (brightness == 0) ? ( this.hpf_k = 0.75; this.lpf_k = 0.125; );   // Opal
+    (brightness == 1) ? ( this.hpf_k = 0.45629901; this.lpf_k = 0.375; );  // Gold
+    (brightness == 2) ? ( this.hpf_k = 0.375; this.lpf_k = 0.5625; );   // Sapphire
+  
+    this.a3 = 0.375;
+    this.f1 = 0.75;
+    this.p20 = 0.5625;
+    this.p24 = 0.0125;
+    this.g0 = 0;
+    this.sat_type = 2;
+
+    this.auto_gain_a1 = -0.636;
+    this.auto_gain_a2 = 0.17;
+
+  );
+  
+  this.model_type = type;
+);
+
+function Phoenix_setProcessing(processing)
+(
+  this.processing = processing;
+  
+  // simple auto-gain compensation
+  this.auto_gain = 1.0 + processing * this.auto_gain_a1 + processing * processing * this.auto_gain_a2;
+);
+
+function Phoenix_sat(x) local(y, xx)
+(
+  y = 0.0;
+  
+  // hard clip
+  (x > 1.0) ? ( x = 1.0 );
+  (x < -1.0) ? (x = -1.0 );
+  
+  xx = x * x;
+  
+  (this.sat_type == 0) ? ( y = x * (2.86008989 + xx * (-4.5530714 + xx * (1.45923194 + xx * -0.21303786))); );
+  (this.sat_type == 1) ? ( y = x * (1.42392761 + xx * (1.56719233 + xx * (-10.98489801 + xx * (11.45169548 + -3.45056185 * xx)))); );
+  (this.sat_type == 2) ? ( y = x * (1.95790007 + xx * (2.15489826 + xx * (-15.10425859 + xx * (15.74610246 + -4.74452895 * xx)))); );
+  
+  y;
+);
+
+function Phoenix_processSample(x) local(x1, x2, x3, x4, x5, y)
+(
+  processing = this.processing * this.a3;
+
+  x1 = this.hpf_k * x + (x - this.prev_x);
+  x2 = x1 * this.f1 + x1;
+  x3 = (!this.g0) ? x : x2;
+  x4 = (this.model_type == 3) ? this.Phoenix_sat(x2 * processing) : this.Phoenix_sat(x2);
+  x5 = this.Phoenix_sat(x4 * processing * this.p20 + x3);
+
+  this.prev_x = x;
+
+  this.s += (x5 - this.s) * this.lpf_k;
+
+  y = processing * (this.s - x * this.p24);
+
+  (this.model_type == 3) ? ( y *= 0.5 );
+
+  (y + x) * this.auto_gain;
+);
+
+// continue @init:
+
+// sample rate stuff
+left.Phoenix_setSampleRate(srate);
+right.Phoenix_setSampleRate(srate);
+
+// reset filters
+left.Phoenix_reset();
+right.Phoenix_reset();
+
+@slider
+
+input_gain = DB_TO_K(slider1);
+output_gain = DB_TO_K(slider3);
+
+left.Phoenix_setMode(slider4, slider5);
+right.Phoenix_setMode(slider4, slider5);
+
+left.Phoenix_setProcessing(slider2 / 100.0);
+right.Phoenix_setProcessing(slider2 / 100.0);
+
+@block
+
+@sample
+
+spl0 = left.Phoenix_processSample(spl0 * input_gain) * output_gain;
+spl1 = right.Phoenix_processSample(spl1 * input_gain) * output_gain;
+
