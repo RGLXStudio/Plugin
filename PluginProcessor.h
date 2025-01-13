@@ -25,43 +25,38 @@ public:
 // PhoenixProcessor class for audio processing
 class PhoenixProcessor {
 public:
-PhoenixProcessor();
-        void setSampleRate(double sampleRate);
-        void reset();
-        void setMode(float brightness, float type);
-        void setProcessing(float amount);
-        float processSample(float x);
+    PhoenixProcessor();
+    void setSampleRate(double sampleRate);
+    void reset();
+    void setMode(float brightness, float type);
+    void setProcessing(float amount);
+    float processSample(float x);
 private:
-        // Saturation parameters
-      float sr_scale;         // Sample rate scaling
-      float s;                // Smoothing state
-      float prev_x;          // Previous input sample
-      float envelope;        // Envelope follower
-      float envFollowCoeff;  // Envelope follower coefficient
-        
-        // Filter coefficients
-      float hpf_k;          // High-pass filter coefficient
-      float lpf_k;          // Low-pass filter coefficient
-        
-        // Character parameters
-      float a3;             // Drive scaling
-      float f1;             // Presence control
-      float p20;            // Harmonics balance
-      float p24;            // Output stage control
-        
-        // Processing parameters
-      bool g0;              // Processing mode flag
-      int sat_type;         // Saturation type (0: Opal, 1: Gold, 2: Sapphire)
-      int model_type;       // Character type (0: Luminescent, etc.)
-      float processing;     // Main processing amount
-        
-        // Auto-gain parameters
-      float auto_gain_a1;   // First gain stage
-      float auto_gain_a2;   // Second gain stage
-      float auto_gain;      // Final gain compensation
-        
-        // Saturation stage
-      float sat(float x);   // Saturation function
+    // Saturation parameters
+    float sr_scale;         // Sample rate scaling
+    float s;                // Smoothing state
+    float prev_x;          // Previous input sample
+    float envelope;        // Envelope follower
+    float envFollowCoeff;  // Envelope follower coefficient
+    
+    // Filter coefficients
+    float hpf_k;          // High-pass filter coefficient
+    float lpf_k;          // Low-pass filter coefficient
+    
+    // Character parameters
+    float a3;             // Drive scaling
+    float f1;             // Presence control
+    float p20;            // Harmonics balance
+    float p24;            // Output stage control
+    
+    // Processing parameters
+    bool g0;              // Processing mode flag
+    int sat_type;         // Saturation type (0: Opal, 1: Gold, 2: Sapphire)
+    int model_type;       // Character type (0: Luminescent, etc.)
+    float processing;     // Main processing amount
+    
+    // Saturation stage
+    float sat(float x);   // Saturation function
 };
 
 PhoenixSaturationAudioProcessor();
