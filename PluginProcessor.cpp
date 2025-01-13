@@ -61,6 +61,19 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness
     // Smoother filter coefficients
     hpf_k = 0.045f * sr_scale;  // Return to original value
     lpf_k = 0.052f * sr_scale;  // Return to original value
+   
+  if (model_type == 0) { // Luminescent
+        if (sat_type == 1) { // Gold
+            hpf_k = 0.041f * sr_scale;  // Slightly reduced high-pass
+            lpf_k = 0.047f * sr_scale;  // Slightly reduced low-pass
+            
+            // Adjusted character parameters
+            f1 = 0.51f;      // Fine-tuned presence
+            p20 = 0.27f;     // Refined harmonics balance
+            p24 = 0.29f;     // Adjusted output stage
+            a3 = 0.36f;      // Refined drive scaling
+        }
+    }
     
     // More balanced character settings
     f1 = 0.55f;      // Return to original
@@ -98,6 +111,20 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amount)
 {
     processing = amount;
+    
+    if (sat_type == 1) { // Gold
+        // Refined gain staging for Gold mode
+        auto_gain_a1 = 1.0f + processing * 0.15f;    // Reduced from 0.16f
+        auto_gain_a2 = 1.0f + processing * 0.11f;    // Reduced from 0.14f
+        auto_gain = 1.0f / (auto_gain_a1 * auto_gain_a2);
+        
+        // Additional compensation at high processing values
+        if (processing > 0.65f) {
+            auto_gain *= 1.0f + (processing - 0.65f) * 0.2f;
+        }
+    }
+{
+    processing = amount;
     // More balanced gain staging
     auto_gain_a1 = 1.0f + processing * 0.18f;    // Return to original
     auto_gain_a2 = 1.0f + processing * 0.12f;    // Return to original
@@ -107,6 +134,7 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amou
     if (processing > 0.7f) {  // Return to original threshold
         auto_gain *= 1.0f + (processing - 0.7f) * 0.3f;  // Return to original
     }
+}
 }
 
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
