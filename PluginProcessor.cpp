@@ -20,19 +20,16 @@ PhoenixSaturationAudioProcessor::PhoenixProcessor::PhoenixProcessor()
     , prev_x(0.0f)
     , envelope(0.0f)
     , envFollowCoeff(0.99f)
-    , hpf_k(0.045f)
-    , lpf_k(0.052f)
-    , a3(0.35f)
-    , f1(0.55f)
-    , p20(0.25f)
-    , p24(0.28f)
+    , hpf_k(0.042f)
+    , lpf_k(0.058f)
+    , a3(0.45f)
+    , f1(0.65f)
+    , p20(0.35f)
+    , p24(0.15f)
     , g0(true)
     , sat_type(0)
     , model_type(0)
     , processing(0.0f)
-    , auto_gain_a1(1.0f)
-    , auto_gain_a2(1.0f)
-    , auto_gain(1.0f)
 {
     reset();
 }
@@ -40,8 +37,8 @@ PhoenixSaturationAudioProcessor::PhoenixProcessor::PhoenixProcessor()
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setSampleRate(double sampleRate)
 {
     sr_scale = 1.0f / std::ceil(sampleRate / 44100.0f);
-    hpf_k = 0.045f * sr_scale;
-    lpf_k = 0.052f * sr_scale;
+    hpf_k = 0.042f * sr_scale;
+    lpf_k = 0.058f * sr_scale;
 }
 
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::reset()
@@ -51,189 +48,141 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::reset()
     envelope = 0.0f;
 }
 
-// ... [keep other code the same until setMode function]
-
+// Would you like me to continue with the rest of the implementation? I'll share the rest of PluginProcessor.cpp and PluginEditor files.
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness, float type)
 {
     model_type = static_cast<int>(type);
     sat_type = static_cast<int>(brightness);
 
-    // Set default parameters first
-    hpf_k = 0.045f * sr_scale;
-    lpf_k = 0.052f * sr_scale;
-    f1 = 0.55f;      
-    p20 = 0.25f;     
-    p24 = 0.28f;     
-    a3 = 0.35f;      
+    // More aggressive base parameters
+    hpf_k = 0.042f * sr_scale;
+    lpf_k = 0.058f * sr_scale;
+    f1 = 0.65f;      
+    p20 = 0.35f;     
+    p24 = 0.15f;     
+    a3 = 0.45f;      
     g0 = true;
 
-if (model_type == 0) { // Luminescent
-    if (sat_type == 1) { // Gold
-        hpf_k = 0.035f * sr_scale;  // Reduced from 0.038f
-        lpf_k = 0.041f * sr_scale;  // Reduced from 0.044f
-        
-        // Adjusted character parameters
-        f1 = 0.46f;      // Reduced from 0.48f
-        p20 = 0.31f;     // Increased from 0.29f
-        p24 = 0.33f;     // Increased from 0.31f
-        a3 = 0.40f;      // Increased from 0.38f
+    if (model_type == 0) { // Luminescent
+        if (sat_type == 1) { // Gold
+            hpf_k = 0.038f * sr_scale;
+            lpf_k = 0.048f * sr_scale;
+            f1 = 0.58f;
+            p20 = 0.42f;    
+            p24 = 0.12f;    
+            a3 = 0.52f;     
+        }
     }
-}
 
-    // Balanced model-specific adjustments
     switch (model_type) {
         case 1:  // Iridescent
-            f1 = 0.48f;
-            p20 = 0.29f;
-            a3 = 0.37f;
+            f1 = 0.55f;
+            p20 = 0.38f;
+            a3 = 0.48f;
             break;
         case 2:  // Radiant
-            f1 = 0.44f;
-            p24 = 0.33f;
-            a3 = 0.39f;
+            f1 = 0.52f;
+            p24 = 0.18f;
+            a3 = 0.55f;
             break;
         case 3:  // Luster
-            a3 = 0.76f;     // Increased from 0.36f
-            p20 = 0.61f;    // Increased from 0.31f
+            a3 = 0.85f;     
+            p20 = 0.72f;    
             g0 = false;
             break;
         case 4:  // Dark Essence
-            f1 = 0.58f;     // Increased from 0.38f
-            p20 = 0.63f;    // Increased from 0.33f
-            p24 = 0.55f;    // Increased from 0.35f
-            a3 = 0.72f;     // Increased from 0.42f
+            f1 = 0.68f;
+            p20 = 0.75f;    
+            p24 = 0.22f;
+            a3 = 0.82f;     
             break;
     }
 }
 
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amount)
 {
+    // Direct processing amount without auto-gain compensation
     processing = amount;
     
     if (sat_type == 1) { // Gold
-        // Refined gain staging for Gold mode
-        auto_gain_a1 = 1.0f + processing * 0.28f;    // Increased from 0.22f
-        auto_gain_a2 = 1.0f + processing * 0.21f;    // Increased from 0.16f
-        auto_gain = 1.0f / (auto_gain_a1 * auto_gain_a2);
-        
-        // Additional compensation at high processing values
-        if (processing > 0.65f) {
-            auto_gain *= 1.0f + (processing - 0.65f) * 0.35f;  // Increased from 0.3f
-        }
-        
-        // Additional level compensation for Gold mode
-        auto_gain *= 1.45f;  // Increased from 1.25f
+        processing *= 1.8f; // More aggressive drive
     }
     else {
-        // Default gain staging for other modes
-        auto_gain_a1 = 1.0f + processing * 0.18f;
-        auto_gain_a2 = 1.0f + processing * 0.12f;
-        auto_gain = 1.0f / (auto_gain_a1 * auto_gain_a2);
-        
-        if (processing > 0.7f) {
-            auto_gain *= 1.0f + (processing - 0.7f) * 0.3f;
-        }
+        processing *= 1.5f;
     }
 }
 
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
 {
     switch (sat_type) {
-        case 0:  // Opal - Smooth, warm harmonics
-            {
-                // Update envelope follower
-                envelope = std::max(std::abs(x), envelope * envFollowCoeff);
-                float warmth = 1.0f + 0.2f * envelope;
-                
-                // Soft saturation with warm harmonics
-                float y = std::tanh(x * 1.5f * warmth);
-                float y2 = y * y;
-                float y3 = y2 * y;
-                float y5 = y3 * y2;
-                
-                return y + 0.1f * y3 - 0.05f * y5;
-            }
+        case 0:  // Opal - More aggressive warm harmonics
+        {
+            float xx = x * x;
+            return x * (3.5f + xx * (-5.5f + xx * (2.2f + xx * -0.4f)));
+        }
             
-case 1:  // Gold - Balanced asymmetric distortion
-{
-    // Update envelope follower
-    envelope = std::max(std::abs(x), envelope * 0.995f);
-    
-    // Dynamic drive adjustment
-    float dynamicDrive = 1.0f + 0.25f * envelope;
-    
-    // Asymmetric processing with refined curve
-    float pos = x > 0 ? x : x * 0.97f;
-    float drive = 1.65f * dynamicDrive;
-    
-    // Main waveshaping
-    float base = pos / (1.0f + std::abs(pos * drive));
-    float base2 = base * base;
-    float base3 = base2 * base;
-    float base5 = base3 * base2;
-    
-    // Combined harmonics with adjusted coefficients and scaling
-    return (base + 0.12f * base2 + 0.06f * base3 - 0.015f * base5) * 1.85f;  // Increased from 1.42f to 1.85f
-}
+        case 1:  // Gold - Heavy asymmetric distortion
+        {
+            float drive = 2.2f;
+            float pos = x > 0 ? x : x * 0.92f;
             
-        case 2:  // Sapphire - Cleaner, focused harmonics
-            {
-                // Dynamic adaptation
-                envelope = std::max(std::abs(x), envelope * envFollowCoeff);
-                float clarity = 1.0f + 0.15f * envelope;
-                
-                // Main saturation with focus on clarity
-                float y = std::atan(x * 1.85f * clarity) / 1.57f;
-                float y2 = y * y;
-                float y3 = y2 * y;
-                float y5 = y3 * y2;
-                
-                // Balanced harmonic mix
-                return y + 0.12f * y3 - 0.03f * y5;
-            }
+            float base = pos / (1.0f + std::abs(pos * drive));
+            float base2 = base * base;
+            float base3 = base2 * base;
+            float base5 = base3 * base2;
             
-        default:  // Transparent - Linear passthrough with subtle enhancement
-            {
-                // Soft limiting
-                float clip = x > 1.0f ? 1.0f : (x < -1.0f ? -1.0f : x);
-                float clip2 = clip * clip;
-                float clip3 = clip2 * clip;
-                
-                // Very subtle harmonics
-                return clip + 0.02f * clip3;
-            }
+            return (base + 0.18f * base2 + 0.12f * base3 - 0.02f * base5) * 2.5f;
+        }
+            
+        case 2:  // Sapphire - Aggressive focused harmonics
+        {
+            float y = std::atan(x * 2.5f) / 1.57f;
+            float y2 = y * y;
+            float y3 = y2 * y;
+            float y5 = y3 * y2;
+            
+            return y + 0.25f * y3 - 0.05f * y5;
+        }
+            
+        default:  // Transparent with more drive
+        {
+            float clip = x > 1.0f ? 1.0f : (x < -1.0f ? -1.0f : x);
+            float clip2 = clip * clip;
+            float clip3 = clip2 * clip;
+            
+            return clip + 0.15f * clip3;
+        }
     }
 }
 
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
 {
     // Input stage with high-pass filter
-    const float x1 = hpf_k * x + (1.0f - hpf_k) * (x - prev_x);
+    const float x1 = hpf_k * x + (x - prev_x);
     
-    // Pre-saturation
-    const float proc = processing * a3;
-    const float x2 = x1 * (f1 + 0.25f * proc) + x1 * (1.0f + 0.08f * proc * proc);
+    // More aggressive pre-saturation
+    const float proc = processing * a3 * 1.5f;
+    const float x2 = x1 * (f1 + 0.5f * proc) + x1 * (1.0f + 0.15f * proc * proc);
     
     // Apply saturation
     float saturated = sat(g0 ? x2 : x);
     
-    // Gold-specific output adjustment
+    // Gold-specific output boost
     if (sat_type == 1) {
-        saturated *= 0.965f;  // Additional scaling for Gold mode
+        saturated *= 1.4f;
     }
     
-    // Smoothing
-    const float smooth_amount = 0.08f;
+    // Smoothing with less dampening
+    const float smooth_amount = 0.12f;
     s = (1.0f - smooth_amount) * s + smooth_amount * saturated;
     
     // Post-processing and output
     prev_x = x;
-    float y = proc * (s - x * p24);
+    float y = proc * (s - x * (p24 * 0.5f));
     
-    // Final output with auto-gain
-    return (y + x) * auto_gain;
+    // Return processed signal without auto-gain compensation
+    return y + x;
 }
-// [Rest of your existing PluginProcessor.cpp implementation remains unchanged]
 
 //==============================================================================
 PhoenixSaturationAudioProcessor::PhoenixSaturationAudioProcessor()
@@ -242,20 +191,20 @@ PhoenixSaturationAudioProcessor::PhoenixSaturationAudioProcessor()
                     .withOutput("Output", AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, "Parameters", {
           std::make_unique<AudioParameterFloat>(INPUT_TRIM_ID, "Input Trim",
-                                              NormalisableRange<float>(-12.0f, 12.0f, 0.1f),
-                                              0.0f),
+                                             NormalisableRange<float>(-12.0f, 12.0f, 0.1f),
+                                             0.0f),
           std::make_unique<AudioParameterFloat>(PROCESS_ID, "Process",
-                                              NormalisableRange<float>(0.0f, 100.0f, 0.1f),
-                                              0.0f),
+                                             NormalisableRange<float>(0.0f, 100.0f, 0.1f),
+                                             0.0f),
           std::make_unique<AudioParameterFloat>(OUTPUT_TRIM_ID, "Output Trim",
-                                              NormalisableRange<float>(-12.0f, 12.0f, 0.1f),
-                                              0.0f),
+                                             NormalisableRange<float>(-12.0f, 12.0f, 0.1f),
+                                             0.0f),
           std::make_unique<AudioParameterChoice>(BRIGHTNESS_ID, "Brightness",
-                                               StringArray{"Opal", "Gold", "Sapphire"},
-                                               0),
+                                              StringArray{"Opal", "Gold", "Sapphire"},
+                                              0),
           std::make_unique<AudioParameterChoice>(TYPE_ID, "Type",
-                                               StringArray{"Luminescent", "Iridescent", "Radiant", "Luster", "Dark Essence"},
-                                               0)
+                                              StringArray{"Luminescent", "Iridescent", "Radiant", "Luster", "Dark Essence"},
+                                              0)
       })
 {
     parameters.addParameterListener(INPUT_TRIM_ID, this);
@@ -265,6 +214,8 @@ PhoenixSaturationAudioProcessor::PhoenixSaturationAudioProcessor()
     parameters.addParameterListener(TYPE_ID, this);
 }
 
+// Would you like me to continue with the rest of the implementation, including the remaining processor methods and editor files?
+
 PhoenixSaturationAudioProcessor::~PhoenixSaturationAudioProcessor()
 {
     parameters.removeParameterListener(INPUT_TRIM_ID, this);
@@ -272,11 +223,6 @@ PhoenixSaturationAudioProcessor::~PhoenixSaturationAudioProcessor()
     parameters.removeParameterListener(OUTPUT_TRIM_ID, this);
     parameters.removeParameterListener(BRIGHTNESS_ID, this);
     parameters.removeParameterListener(TYPE_ID, this);
-}
-
-AudioProcessorEditor* PhoenixSaturationAudioProcessor::createEditor()
-{
-    return new PhoenixSaturationAudioProcessorEditor(*this);
 }
 
 void PhoenixSaturationAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
@@ -339,6 +285,11 @@ void PhoenixSaturationAudioProcessor::prepareToPlay(double sampleRate, int sampl
 void PhoenixSaturationAudioProcessor::releaseResources()
 {
     prepared = false;
+}
+
+AudioProcessorEditor* PhoenixSaturationAudioProcessor::createEditor()
+{
+    return new PhoenixSaturationAudioProcessorEditor(*this);
 }
 
 void PhoenixSaturationAudioProcessor::parameterChanged(const String& parameterID, float newValue)
