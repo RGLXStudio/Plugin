@@ -15,11 +15,24 @@ using namespace juce;
 
 //==============================================================================
 PhoenixSaturationAudioProcessor::PhoenixProcessor::PhoenixProcessor()
-    : sr_scale(1.0f), s(0.0f), prev_x(0.0f),
-      hpf_k(0.0f), lpf_k(0.0f), a3(0.0f), f1(0.0f),
-      p20(0.0f), p24(0.0f), g0(true), sat_type(0),
-      model_type(0), processing(0.0f), 
-      auto_gain_a1(0.0f), auto_gain_a2(0.0f), auto_gain(1.0f)
+    : sr_scale(1.0f)
+    , s(0.0f)
+    , prev_x(0.0f)
+    , envelope(0.0f)
+    , envFollowCoeff(0.99f)
+    , hpf_k(0.045f)
+    , lpf_k(0.052f)
+    , a3(0.35f)
+    , f1(0.55f)
+    , p20(0.25f)
+    , p24(0.28f)
+    , g0(true)
+    , sat_type(0)
+    , model_type(0)
+    , processing(0.0f)
+    , auto_gain_a1(1.0f)
+    , auto_gain_a2(1.0f)
+    , auto_gain(1.0f)
 {
     reset();
 }
@@ -27,12 +40,15 @@ PhoenixSaturationAudioProcessor::PhoenixProcessor::PhoenixProcessor()
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setSampleRate(double sampleRate)
 {
     sr_scale = 1.0f / std::ceil(sampleRate / 44100.0f);
+    hpf_k = 0.045f * sr_scale;
+    lpf_k = 0.052f * sr_scale;
 }
 
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::reset()
 {
     s = 0.0f;
     prev_x = 0.0f;
+    envelope = 0.0f;
 }
 
 // ... [keep other code the same until setMode function]
