@@ -176,7 +176,7 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
     }
 }
 
-float PhoenixProcessor::processSample(float x)
+float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
 {
     // Input stage with high-pass filter
     const float x1 = hpf_k * x + (1.0f - hpf_k) * (x - prev_x);
