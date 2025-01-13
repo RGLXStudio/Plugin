@@ -58,11 +58,17 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness
     model_type = static_cast<int>(type);
     sat_type = static_cast<int>(brightness);
 
-    // Smoother filter coefficients
-    hpf_k = 0.045f * sr_scale;  // Return to original value
-    lpf_k = 0.052f * sr_scale;  // Return to original value
-   
-  if (model_type == 0) { // Luminescent
+    // Set default parameters first
+    hpf_k = 0.045f * sr_scale;
+    lpf_k = 0.052f * sr_scale;
+    f1 = 0.55f;      
+    p20 = 0.25f;     
+    p24 = 0.28f;     
+    a3 = 0.35f;      
+    g0 = true;
+
+    // Then apply specific settings for Gold mode
+    if (model_type == 0) { // Luminescent
         if (sat_type == 1) { // Gold
             hpf_k = 0.041f * sr_scale;  // Slightly reduced high-pass
             lpf_k = 0.047f * sr_scale;  // Slightly reduced low-pass
@@ -74,13 +80,6 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness
             a3 = 0.36f;      // Refined drive scaling
         }
     }
-    
-    // More balanced character settings
-    f1 = 0.55f;      // Return to original
-    p20 = 0.25f;     // Return to original
-    p24 = 0.28f;     // Return to original
-    a3 = 0.35f;      // Return to original
-    g0 = true;
 
     // Balanced model-specific adjustments
     switch (model_type) {
@@ -123,18 +122,16 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amou
             auto_gain *= 1.0f + (processing - 0.65f) * 0.2f;
         }
     }
-{
-    processing = amount;
-    // More balanced gain staging
-    auto_gain_a1 = 1.0f + processing * 0.18f;    // Return to original
-    auto_gain_a2 = 1.0f + processing * 0.12f;    // Return to original
-    auto_gain = 1.0f / (auto_gain_a1 * auto_gain_a2);
-    
-    // Gentler boost
-    if (processing > 0.7f) {  // Return to original threshold
-        auto_gain *= 1.0f + (processing - 0.7f) * 0.3f;  // Return to original
+    else {
+        // Default gain staging for other modes
+        auto_gain_a1 = 1.0f + processing * 0.18f;
+        auto_gain_a2 = 1.0f + processing * 0.12f;
+        auto_gain = 1.0f / (auto_gain_a1 * auto_gain_a2);
+        
+        if (processing > 0.7f) {
+            auto_gain *= 1.0f + (processing - 0.7f) * 0.3f;
+        }
     }
-}
 }
 
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
@@ -155,32 +152,30 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
                 return y + 0.1f * y3 - 0.05f * y5;
             }
             
-        case 1:  // Gold - Balanced asymmetric distortion
-        {
-            // Update envelope follower for dynamic control
-            envelope = std::max(std::abs(x), envelope * 0.995f);  // Slightly slower envelope
-            
-            // Dynamic drive adjustment
-            float dynamicDrive = 1.0f + 0.25f * envelope;
-            
-            // Asymmetric processing with refined curve
-            float pos = x > 0 ? x : x * 0.97f;  // Less asymmetric than before
-            float drive = 1.65f * dynamicDrive;  // Reduced from 1.8f
-            
-            // Main waveshaping
-            float base = pos / (1.0f + std::abs(pos * drive));
-            
-            // Harmonic generation with careful balance
-            float base2 = base * base;
-            float base3 = base2 * base;
-            float base5 = base3 * base2;
-            
-            // Combine harmonics with adjusted coefficients
-            float shaped = base + 0.12f * base2 + 0.06f * base3 - 0.015f * base5;
-            
-            // Output level adjustment to match reference
-            return shaped * 0.965f;  // Added scaling factor
-        }
+case 1:  // Gold - Balanced asymmetric distortion
+{
+    // Update envelope follower for dynamic control
+    envelope = std::max(std::abs(x), envelope * 0.995f);
+    
+    // Dynamic drive adjustment
+    float dynamicDrive = 1.0f + 0.25f * envelope;
+    
+    // Asymmetric processing with refined curve
+    float pos = x > 0 ? x : x * 0.97f;
+    float drive = 1.65f * dynamicDrive;
+    
+    // Main waveshaping
+    float base = pos / (1.0f + std::abs(pos * drive));
+    
+    // Harmonic generation with careful balance
+    float base2 = base * base;
+    float base3 = base2 * base;
+    float base5 = base3 * base2;
+    
+    // Combine harmonics with adjusted coefficients
+    return base + 0.12f * base2 + 0.06f * base3 - 0.015f * base5;
+    // Remove the * 0.965f scaling from here since it's now in processSample
+}
             
         case 2:  // Sapphire - Cleaner, focused harmonics
             {
@@ -221,7 +216,12 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
     const float x2 = x1 * (f1 + 0.25f * proc) + x1 * (1.0f + 0.08f * proc * proc);
     
     // Apply saturation
-    const float saturated = sat(g0 ? x2 : x);
+    float saturated = sat(g0 ? x2 : x);
+    
+    // Gold-specific output adjustment
+    if (sat_type == 1) {
+        saturated *= 0.965f;  // Additional scaling for Gold mode
+    }
     
     // Smoothing
     const float smooth_amount = 0.08f;
@@ -234,7 +234,6 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
     // Final output with auto-gain
     return (y + x) * auto_gain;
 }
-
 // [Rest of your existing PluginProcessor.cpp implementation remains unchanged]
 
 //==============================================================================
