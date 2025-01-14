@@ -2,7 +2,7 @@
   ==============================================================================
 
     Phoenix Saturation Plugin
-    Created: 2025-01-14 06:52:24 UTC
+    Created: 2025-01-14 07:39:55 UTC
     Author:  RGLXStudio
 
   ==============================================================================
@@ -24,21 +24,41 @@ class PhoenixSaturationAudioProcessor : public juce::AudioProcessor,
 public:
     // PhoenixProcessor class for audio processing
     class PhoenixProcessor {
-public:
-    PhoenixProcessor() : processing(0.0f), sat_type(0), model_type(0) {}
-    void setProcessing(float amount) { processing = amount * 0.01f; }
-    void setMode(float brightness, float type) {
-        sat_type = static_cast<int>(brightness);
-        model_type = static_cast<int>(type);
-    }
-    void setSampleRate(double) {} // Not used
-    void reset() {} // Not used
-    float processSample(float x);
-private:
-    float processing;
-    int sat_type;    // Brightness: 0=Opal, 1=Gold, 2=Sapphire
-    int model_type;  // Type: 0=Luminescent, 1=Iridescent, etc.
-};
+    public:
+        PhoenixProcessor() : 
+            processing(0.0f), 
+            sat_type(0), 
+            model_type(0),
+            a3(1.0f),
+            f1(0.5f),
+            p20(0.25f),
+            p24(0.1f),
+            auto_gain_a1(-0.5f),
+            auto_gain_a2(0.1f)
+        {}
+
+        void setProcessing(float amount) { processing = amount * 0.01f; }
+        void setMode(float brightness, float type);
+        void setSampleRate(double) {} // Not needed
+        void reset() {} // Not needed
+        float processSample(float x);
+
+    private:
+        float processing;
+        int sat_type;    // Brightness: 0=Opal, 1=Gold, 2=Sapphire
+        int model_type;  // Type: 0=Luminescent, 1=Iridescent, etc.
+        
+        // Character parameters
+        float a3;         // Drive scaling
+        float f1;         // Presence control
+        float p20;        // Harmonics balance
+        float p24;        // Output stage control
+        
+        // Auto-gain compensation
+        float auto_gain_a1;
+        float auto_gain_a2;
+    };
+
     PhoenixSaturationAudioProcessor();
     ~PhoenixSaturationAudioProcessor() override;
 
