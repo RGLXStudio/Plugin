@@ -1,9 +1,8 @@
-```cpp
 /*
   ==============================================================================
 
     Phoenix Saturation Plugin
-    Created: 2025-01-14 06:46:29 UTC
+    Created: 2025-01-14 06:52:24 UTC
     Author:  RGLXStudio
 
   ==============================================================================
@@ -12,9 +11,11 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+using namespace juce;
+
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
 {
-    // Exact JSFX behavior
+    // Exact JSFX behavior:
     float drive = processing * 24.0f; // Scale 0-1 to 0-24 range
     x *= std::pow(10.0f, drive * 0.05f); // Same as JSFX gain = 10^(drive/20)
     
@@ -46,23 +47,19 @@ PhoenixSaturationAudioProcessor::PhoenixSaturationAudioProcessor()
                                                0)
       })
 {
-    parameters.addParameterListener(INPUT_TRIM_ID, this);
     parameters.addParameterListener(PROCESS_ID, this);
+    parameters.addParameterListener(INPUT_TRIM_ID, this);
     parameters.addParameterListener(OUTPUT_TRIM_ID, this);
-    parameters.addParameterListener(BRIGHTNESS_ID, this);
-    parameters.addParameterListener(TYPE_ID, this);
 }
 
 PhoenixSaturationAudioProcessor::~PhoenixSaturationAudioProcessor()
 {
-    parameters.removeParameterListener(INPUT_TRIM_ID, this);
     parameters.removeParameterListener(PROCESS_ID, this);
+    parameters.removeParameterListener(INPUT_TRIM_ID, this);
     parameters.removeParameterListener(OUTPUT_TRIM_ID, this);
-    parameters.removeParameterListener(BRIGHTNESS_ID, this);
-    parameters.removeParameterListener(TYPE_ID, this);
 }
 
-void PhoenixSaturationAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
+void PhoenixSaturationAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer&)
 {
     ScopedNoDenormals noDenormals;
     
@@ -101,10 +98,7 @@ void PhoenixSaturationAudioProcessor::prepareToPlay(double sampleRate, int sampl
     currentSampleRate = sampleRate;
     currentBlockSize = samplesPerBlock;
     
-    leftChannel.reset();
-    rightChannel.reset();
-    
-    const float processAmount = parameters.getParameter(PROCESS_ID)->getValue() / 100.0f;
+    const float processAmount = parameters.getParameter(PROCESS_ID)->getValue();
     
     leftChannel.setProcessing(processAmount);
     rightChannel.setProcessing(processAmount);
@@ -121,15 +115,23 @@ void PhoenixSaturationAudioProcessor::parameterChanged(const String& parameterID
 {
     if (parameterID == PROCESS_ID)
     {
-        const float processAmount = newValue / 100.0f;
-        leftChannel.setProcessing(processAmount);
-        rightChannel.setProcessing(processAmount);
+        leftChannel.setProcessing(newValue);
+        rightChannel.setProcessing(newValue);
     }
 }
 
 AudioProcessorEditor* PhoenixSaturationAudioProcessor::createEditor()
 {
     return new PhoenixSaturationAudioProcessorEditor(*this);
+}
+
+bool PhoenixSaturationAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
+{
+    if (layouts.getMainOutputChannelSet() != AudioChannelSet::mono()
+     && layouts.getMainOutputChannelSet() != AudioChannelSet::stereo())
+        return false;
+
+    return (layouts.getMainOutputChannelSet() == layouts.getMainInputChannelSet());
 }
 
 void PhoenixSaturationAudioProcessor::getStateInformation(MemoryBlock& destData)
@@ -146,22 +148,13 @@ void PhoenixSaturationAudioProcessor::setStateInformation(const void* data, int 
     if (xmlState != nullptr && xmlState->hasTagName(parameters.state.getType()))
     {
         parameters.replaceState(ValueTree::fromXml(*xmlState));
-        const float processAmount = parameters.getParameter(PROCESS_ID)->getValue() / 100.0f;
+        const float processAmount = parameters.getParameter(PROCESS_ID)->getValue();
         leftChannel.setProcessing(processAmount);
         rightChannel.setProcessing(processAmount);
     }
 }
 
-bool PhoenixSaturationAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
-{
-    if (layouts.getMainOutputChannelSet() != AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != AudioChannelSet::stereo())
-        return false;
-
-    return (layouts.getMainOutputChannelSet() == layouts.getMainInputChannelSet());
-}
-
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new PhoenixSaturationAudioProcessor();
 }
