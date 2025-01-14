@@ -2,7 +2,7 @@
   ==============================================================================
 
     Phoenix Saturation Plugin
-    Created: 2025-01-14 06:52:24 UTC
+    Created: 2025-01-14 07:39:55 UTC
     Author:  RGLXStudio
 
   ==============================================================================
@@ -13,73 +13,89 @@
 
 using namespace juce;
 
+void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness, float type)
+{
+    sat_type = static_cast<int>(brightness);
+    model_type = static_cast<int>(type);
+    
+    // Set parameters based on type exactly like JSFX
+    switch (model_type) {
+        case 0: // Luminescent
+            a3 = 1.0f;
+            f1 = 0.5f;
+            p20 = 0.25f;
+            p24 = 0.1f;
+            auto_gain_a1 = -0.5f;
+            auto_gain_a2 = 0.1f;
+            break;
+            
+        case 1: // Iridescent
+            a3 = 0.75f;
+            f1 = 0.625f;
+            p20 = 0.375f;
+            p24 = 0.08f;
+            auto_gain_a1 = -0.6f;
+            auto_gain_a2 = 0.15f;
+            break;
+            
+        case 2: // Radiant
+            a3 = 1.25f;
+            f1 = 0.5625f;
+            p20 = 0.3125f;
+            p24 = 0.125f;
+            auto_gain_a1 = -0.55f;
+            auto_gain_a2 = 0.125f;
+            break;
+            
+        case 3: // Luster
+            a3 = 1.0f;
+            f1 = 0.6875f;
+            p20 = 0.27343899f;
+            p24 = 0.1171875f;
+            auto_gain_a1 = -0.712f;
+            auto_gain_a2 = 0.172f;
+            break;
+            
+        case 4: // Dark Essence
+            a3 = 0.375f;
+            f1 = 0.75f;
+            p20 = 0.5625f;
+            p24 = 0.0125f;
+            auto_gain_a1 = -0.636f;
+            auto_gain_a2 = 0.17f;
+            break;
+    }
+}
+
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
 {
-    // Base drive calculation (JSFX-style)
-    float drive = processing * 24.0f; // Scale 0-1 to 0-24 range
+    // Apply drive with auto-gain compensation
+    float auto_gain = 1.0f + processing * auto_gain_a1 + processing * processing * auto_gain_a2;
+    float drive = processing * 24.0f * a3;
+    x *= std::pow(10.0f, drive * 0.05f) * auto_gain;
     
-    // Modify drive based on model type
-    switch (model_type) {
-        case 0: // Luminescent - standard
-            break;
-        case 1: // Iridescent - slightly less aggressive
-            drive *= 0.92f;
-            break;
-        case 2: // Radiant - slightly more aggressive
-            drive *= 1.08f;
-            break;
-        case 3: // Luster - much gentler
-            drive *= 0.75f;
-            break;
-        case 4: // Dark Essence - most aggressive
-            drive *= 1.25f;
-            break;
-    }
+    // Hard clip
+    if (x > 1.0f) x = 1.0f;
+    if (x < -1.0f) x = -1.0f;
     
-    // Apply drive with JSFX-style gain calculation
-    x *= std::pow(10.0f, drive * 0.05f);
+    float xx = x * x;
+    float y = 0.0f;
     
-    // Apply character variations while maintaining JSFX-like clipping
+    // Apply the exact polynomial coefficients from JSFX
     switch (sat_type) {
-        case 0: // Opal - standard hard clip with slight harmonics
-        {
-            // Clip at ±1.0
-            if (x > 1.0f) return 1.0f;
-            if (x < -1.0f) return -1.0f;
-            // Add subtle harmonics without changing the basic sound
-            float xx = x * x;
-            return x * (1.0f - xx * 0.05f);
-        }
-        
-        case 1: // Gold - asymmetric clip
-        {
-            // Different positive/negative thresholds
-            if (x > 1.0f) return 1.0f;
-            if (x < -1.0f) return -0.98f;
-            return x;
-        }
-        
-        case 2: // Sapphire - smoother clip
-        {
-            // Soft clip transition near ±1.0
-            float abs_x = std::abs(x);
-            if (abs_x > 1.0f) {
-                return x > 0.0f ? 1.0f : -1.0f;
-            }
-            if (abs_x > 0.9f) {
-                float t = (abs_x - 0.9f) * 10.0f; // 0 to 1 transition
-                return x > 0.0f ? 
-                    x * (1.0f - t) + t : 
-                    x * (1.0f - t) - t;
-            }
-            return x;
-        }
-        
-        default: // Pure JSFX hard clip
-            if (x > 1.0f) return 1.0f;
-            if (x < -1.0f) return -1.0f;
-            return x;
+        case 0: // Opal
+            y = x * (2.86008989f + xx * (-4.5530714f + xx * (1.45923194f + xx * -0.21303786f)));
+            break;
+        case 1: // Gold
+            y = x * (1.42392761f + xx * (1.56719233f + xx * (-10.98489801f + xx * (11.45169548f + -3.45056185f * xx))));
+            break;
+        case 2: // Sapphire
+            y = x * (1.95790007f + xx * (2.15489826f + xx * (-15.10425859f + xx * (15.74610246f + -4.74452895f * xx))));
+            break;
     }
+    
+    // Apply character shaping
+    return y * f1 * (1.0f + p20 * xx) * (1.0f + p24 * xx);
 }
 
 PhoenixSaturationAudioProcessor::PhoenixSaturationAudioProcessor()
@@ -105,15 +121,15 @@ PhoenixSaturationAudioProcessor::PhoenixSaturationAudioProcessor()
       })
 {
     parameters.addParameterListener(PROCESS_ID, this);
-    parameters.addParameterListener(INPUT_TRIM_ID, this);
-    parameters.addParameterListener(OUTPUT_TRIM_ID, this);
+    parameters.addParameterListener(BRIGHTNESS_ID, this);
+    parameters.addParameterListener(TYPE_ID, this);
 }
 
 PhoenixSaturationAudioProcessor::~PhoenixSaturationAudioProcessor()
 {
     parameters.removeParameterListener(PROCESS_ID, this);
-    parameters.removeParameterListener(INPUT_TRIM_ID, this);
-    parameters.removeParameterListener(OUTPUT_TRIM_ID, this);
+    parameters.removeParameterListener(BRIGHTNESS_ID, this);
+    parameters.removeParameterListener(TYPE_ID, this);
 }
 
 void PhoenixSaturationAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer&)
@@ -156,9 +172,13 @@ void PhoenixSaturationAudioProcessor::prepareToPlay(double sampleRate, int sampl
     currentBlockSize = samplesPerBlock;
     
     const float processAmount = parameters.getParameter(PROCESS_ID)->getValue();
+    const float brightness = parameters.getParameter(BRIGHTNESS_ID)->getValue() * 2.0f;
+    const float type = parameters.getParameter(TYPE_ID)->getValue() * 4.0f;
     
     leftChannel.setProcessing(processAmount);
     rightChannel.setProcessing(processAmount);
+    leftChannel.setMode(brightness, type);
+    rightChannel.setMode(brightness, type);
     
     prepared = true;
 }
@@ -212,10 +232,106 @@ void PhoenixSaturationAudioProcessor::setStateInformation(const void* data, int 
     if (xmlState != nullptr && xmlState->hasTagName(parameters.state.getType()))
     {
         parameters.replaceState(ValueTree::fromXml(*xmlState));
+        
         const float processAmount = parameters.getParameter(PROCESS_ID)->getValue();
+        const float brightness = parameters.getParameter(BRIGHTNESS_ID)->getValue() * 2.0f;
+        const float type = parameters.getParameter(TYPE_ID)->getValue() * 4.0f;
+        
         leftChannel.setProcessing(processAmount);
         rightChannel.setProcessing(processAmount);
+        leftChannel.setMode(brightness, type);
+        rightChannel.setMode(brightness, type);
     }
+}
+
+float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
+{
+    // Apply drive with auto-gain compensation
+    float auto_gain = 1.0f + processing * auto_gain_a1 + processing * processing * auto_gain_a2;
+    float drive = processing * 24.0f * a3;
+    x *= std::pow(10.0f, drive * 0.05f) * auto_gain;
+    
+    // Hard clip
+    if (x > 1.0f) x = 1.0f;
+    if (x < -1.0f) x = -1.0f;
+    
+    float xx = x * x;
+    float y = 0.0f;
+    
+    // Apply the exact polynomial coefficients from JSFX
+    switch (sat_type) {
+        case 0: // Opal
+            y = x * (2.86008989f + xx * (-4.5530714f + xx * (1.45923194f + xx * -0.21303786f)));
+            break;
+        case 1: // Gold
+            y = x * (1.42392761f + xx * (1.56719233f + xx * (-10.98489801f + xx * (11.45169548f + -3.45056185f * xx))));
+            break;
+        case 2: // Sapphire
+            y = x * (1.95790007f + xx * (2.15489826f + xx * (-15.10425859f + xx * (15.74610246f + -4.74452895f * xx))));
+            break;
+    }
+    
+    // Apply presence, harmonics balance and output stage
+    return y * f1 * (1.0f + p20 * xx) * (1.0f + p24 * xx);
+}
+
+void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness, float type)
+{
+    sat_type = static_cast<int>(brightness);
+    model_type = static_cast<int>(type);
+    
+    // Set parameters based on type exactly like JSFX
+    switch (model_type) {
+        case 0: // Luminescent
+            a3 = 1.0f;
+            f1 = 0.5f;
+            p20 = 0.25f;
+            p24 = 0.1f;
+            auto_gain_a1 = -0.5f;
+            auto_gain_a2 = 0.1f;
+            break;
+            
+        case 1: // Iridescent
+            a3 = 0.75f;
+            f1 = 0.625f;
+            p20 = 0.375f;
+            p24 = 0.08f;
+            auto_gain_a1 = -0.6f;
+            auto_gain_a2 = 0.15f;
+            break;
+            
+        case 2: // Radiant
+            a3 = 1.5f;
+            f1 = 0.75f;
+            p20 = 0.5f;
+            p24 = 0.15f;
+            auto_gain_a1 = -0.55f;
+            auto_gain_a2 = 0.125f;
+            break;
+            
+        case 3: // Luster
+            a3 = 1.0f;
+            f1 = 0.6875f;
+            p20 = 0.27343899f;
+            p24 = 0.1171875f;
+            auto_gain_a1 = -0.712f;
+            auto_gain_a2 = 0.172f;
+            break;
+            
+        case 4: // Dark Essence
+            a3 = 0.375f;
+            f1 = 0.75f;
+            p20 = 0.5625f;
+            p24 = 0.0125f;
+            auto_gain_a1 = -0.636f;
+            auto_gain_a2 = 0.17f;
+            break;
+    }
+}
+
+void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amount)
+{
+    processing = amount * 0.01f; // Convert percentage to 0-1 range
 }
 
 AudioProcessor* JUCE_CALLTYPE createPluginFilter()
