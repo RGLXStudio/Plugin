@@ -141,6 +141,8 @@ PhoenixSaturationAudioProcessor::PhoenixSaturationAudioProcessor()
     parameters.addParameterListener(PROCESS_ID, this);
     parameters.addParameterListener(BRIGHTNESS_ID, this);
     parameters.addParameterListener(TYPE_ID, this);
+  parameters.addParameterListener(INPUT_TRIM_ID, this);
+parameters.addParameterListener(OUTPUT_TRIM_ID, this);
 }
 
 PhoenixSaturationAudioProcessor::~PhoenixSaturationAudioProcessor()
@@ -148,6 +150,8 @@ PhoenixSaturationAudioProcessor::~PhoenixSaturationAudioProcessor()
     parameters.removeParameterListener(PROCESS_ID, this);
     parameters.removeParameterListener(BRIGHTNESS_ID, this);
     parameters.removeParameterListener(TYPE_ID, this);
+  parameters.removeParameterListener(INPUT_TRIM_ID, this);
+parameters.removeParameterListener(OUTPUT_TRIM_ID, this);
 }
 
 void PhoenixSaturationAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer&)
