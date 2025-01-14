@@ -115,10 +115,16 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amou
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
 {
     switch (sat_type) {
-        case 0:  // Opal - More aggressive warm harmonics
+        case 0:  // Opal - Hard clipping with smooth transition
         {
+            float drive = 2.0f;
+            x *= drive;
+            // Hard clip at ±1.0 with smooth transition
+            if (x > 1.0f) return 1.0f;
+            if (x < -1.0f) return -1.0f;
+            // Smooth polynomial near the clipping points
             float xx = x * x;
-            return x * (3.5f + xx * (-5.5f + xx * (2.2f + xx * -0.4f)));
+            return x * (1.0f - xx * 0.3f);
         }
             
         case 1:  // Gold - Heavy asymmetric distortion
@@ -126,31 +132,38 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
             float drive = 2.2f;
             float pos = x > 0 ? x : x * 0.92f;
             
+            // More aggressive clipping for positive values
+            if (pos > 1.0f) return 1.0f;
+            if (pos < -1.0f) return -0.92f;
+            
             float base = pos / (1.0f + std::abs(pos * drive));
             float base2 = base * base;
             float base3 = base2 * base;
-            float base5 = base3 * base2;
             
-            return (base + 0.18f * base2 + 0.12f * base3 - 0.02f * base5) * 2.5f;
+            return (base + 0.18f * base2 + 0.12f * base3) * 2.5f;
         }
             
-        case 2:  // Sapphire - Aggressive focused harmonics
+        case 2:  // Sapphire - Hard clipping with harmonic enhancement
         {
-            float y = std::atan(x * 2.5f) / 1.57f;
+            float drive = 2.5f;
+            x *= drive;
+            
+            // Hard clip with slight softening
+            if (x > 1.0f) return 1.0f;
+            if (x < -1.0f) return -1.0f;
+            
+            float y = x * (1.0f - std::abs(x) * 0.2f);
             float y2 = y * y;
             float y3 = y2 * y;
-            float y5 = y3 * y2;
             
-            return y + 0.25f * y3 - 0.05f * y5;
+            return y + 0.15f * y3;
         }
             
-        default:  // Transparent with more drive
+        default:  // Transparent - Pure hard clipping
         {
-            float clip = x > 1.0f ? 1.0f : (x < -1.0f ? -1.0f : x);
-            float clip2 = clip * clip;
-            float clip3 = clip2 * clip;
-            
-            return clip + 0.15f * clip3;
+            if (x > 1.0f) return 1.0f;
+            if (x < -1.0f) return -1.0f;
+            return x;
         }
     }
 }
