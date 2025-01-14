@@ -224,6 +224,12 @@ void PhoenixSaturationAudioProcessor::parameterChanged(const String& parameterID
         leftChannel.setMode(brightness, type);
         rightChannel.setMode(brightness, type);
     }
+    // Add these cases
+    else if (parameterID == INPUT_TRIM_ID || parameterID == OUTPUT_TRIM_ID)
+    {
+        // The trim values are handled directly in processBlock, 
+        // so we don't need to do anything here
+    }
 }
 
 AudioProcessorEditor* PhoenixSaturationAudioProcessor::createEditor()
