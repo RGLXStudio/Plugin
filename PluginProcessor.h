@@ -24,17 +24,21 @@ class PhoenixSaturationAudioProcessor : public juce::AudioProcessor,
 public:
     // PhoenixProcessor class for audio processing
     class PhoenixProcessor {
-    public:
-        PhoenixProcessor() : processing(0.0f) {}
-        void setProcessing(float amount) { processing = amount * 0.01f; }
-        void setMode(float, float) {} // Not used anymore
-        void setSampleRate(double) {} // Not used anymore
-        void reset() {} // Not used anymore
-        float processSample(float x);
-    private:
-        float processing;
-    };
-
+public:
+    PhoenixProcessor() : processing(0.0f), sat_type(0), model_type(0) {}
+    void setProcessing(float amount) { processing = amount * 0.01f; }
+    void setMode(float brightness, float type) {
+        sat_type = static_cast<int>(brightness);
+        model_type = static_cast<int>(type);
+    }
+    void setSampleRate(double) {} // Not used
+    void reset() {} // Not used
+    float processSample(float x);
+private:
+    float processing;
+    int sat_type;    // Brightness: 0=Opal, 1=Gold, 2=Sapphire
+    int model_type;  // Type: 0=Luminescent, 1=Iridescent, etc.
+};
     PhoenixSaturationAudioProcessor();
     ~PhoenixSaturationAudioProcessor() override;
 
