@@ -2,7 +2,7 @@
   ==============================================================================
 
     Phoenix Saturation Plugin
-    Created: 2025-01-09 06:42:21 UTC
+    Created: 2025-01-14 06:30:56 UTC
     Author:  RGLXStudio
 
   ==============================================================================
@@ -15,19 +15,7 @@ using namespace juce;
 
 //==============================================================================
 PhoenixSaturationAudioProcessor::PhoenixProcessor::PhoenixProcessor()
-    : sr_scale(1.0f)
-    , s(0.0f)
-    , prev_x(0.0f)
-    , envelope(0.0f)
-    , envFollowCoeff(0.99f)
-    , hpf_k(0.042f)
-    , lpf_k(0.058f)
-    , a3(0.45f)
-    , f1(0.65f)
-    , p20(0.35f)
-    , p24(0.15f)
-    , g0(true)
-    , sat_type(0)
+    : sat_type(0)
     , model_type(0)
     , processing(0.0f)
 {
@@ -36,165 +24,93 @@ PhoenixSaturationAudioProcessor::PhoenixProcessor::PhoenixProcessor()
 
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setSampleRate(double sampleRate)
 {
-    sr_scale = 1.0f / std::ceil(sampleRate / 44100.0f);
-    hpf_k = 0.042f * sr_scale;
-    lpf_k = 0.058f * sr_scale;
+    // We don't need sample rate for hard clipping
 }
 
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::reset()
 {
-    s = 0.0f;
-    prev_x = 0.0f;
-    envelope = 0.0f;
+    // Reset not needed for stateless processing
 }
 
-// Would you like me to continue with the rest of the implementation? I'll share the rest of PluginProcessor.cpp and PluginEditor files.
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness, float type)
 {
     model_type = static_cast<int>(type);
     sat_type = static_cast<int>(brightness);
-
-    // More aggressive base parameters
-    hpf_k = 0.042f * sr_scale;
-    lpf_k = 0.058f * sr_scale;
-    f1 = 0.65f;      
-    p20 = 0.35f;     
-    p24 = 0.15f;     
-    a3 = 0.45f;      
-    g0 = true;
-
-    if (model_type == 0) { // Luminescent
-        if (sat_type == 1) { // Gold
-            hpf_k = 0.038f * sr_scale;
-            lpf_k = 0.048f * sr_scale;
-            f1 = 0.58f;
-            p20 = 0.42f;    
-            p24 = 0.12f;    
-            a3 = 0.52f;     
-        }
-    }
-
-    switch (model_type) {
-        case 1:  // Iridescent
-            f1 = 0.55f;
-            p20 = 0.38f;
-            a3 = 0.48f;
-            break;
-        case 2:  // Radiant
-            f1 = 0.52f;
-            p24 = 0.18f;
-            a3 = 0.55f;
-            break;
-        case 3:  // Luster
-            a3 = 0.85f;     
-            p20 = 0.72f;    
-            g0 = false;
-            break;
-        case 4:  // Dark Essence
-            f1 = 0.68f;
-            p20 = 0.75f;    
-            p24 = 0.22f;
-            a3 = 0.82f;     
-            break;
-    }
 }
 
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amount)
 {
-    // Direct processing amount without auto-gain compensation
-    processing = amount;
-    
-    if (sat_type == 1) { // Gold
-        processing *= 1.8f; // More aggressive drive
-    }
-    else {
-        processing *= 1.5f;
-    }
+    // Convert percentage to 0-1 range and scale to match JSFX
+    processing = amount * 0.01f;
 }
 
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
 {
-    switch (sat_type) {
-        case 0:  // Opal - Hard clipping with smooth transition
-        {
-            float drive = 2.0f;
-            x *= drive;
-            // Hard clip at ±1.0 with smooth transition
-            if (x > 1.0f) return 1.0f;
-            if (x < -1.0f) return -1.0f;
-            // Smooth polynomial near the clipping points
-            float xx = x * x;
-            return x * (1.0f - xx * 0.3f);
-        }
-            
-        case 1:  // Gold - Heavy asymmetric distortion
-        {
-            float drive = 2.2f;
-            float pos = x > 0 ? x : x * 0.92f;
-            
-            // More aggressive clipping for positive values
-            if (pos > 1.0f) return 1.0f;
-            if (pos < -1.0f) return -0.92f;
-            
-            float base = pos / (1.0f + std::abs(pos * drive));
-            float base2 = base * base;
-            float base3 = base2 * base;
-            
-            return (base + 0.18f * base2 + 0.12f * base3) * 2.5f;
-        }
-            
-        case 2:  // Sapphire - Hard clipping with harmonic enhancement
-        {
-            float drive = 2.5f;
-            x *= drive;
-            
-            // Hard clip with slight softening
-            if (x > 1.0f) return 1.0f;
-            if (x < -1.0f) return -1.0f;
-            
-            float y = x * (1.0f - std::abs(x) * 0.2f);
-            float y2 = y * y;
-            float y3 = y2 * y;
-            
-            return y + 0.15f * y3;
-        }
-            
-        default:  // Transparent - Pure hard clipping
-        {
-            if (x > 1.0f) return 1.0f;
-            if (x < -1.0f) return -1.0f;
-            return x;
-        }
-    }
+    // Simple hard clipping like in JSFX
+    if (x > 1.0f) return 1.0f;
+    if (x < -1.0f) return -1.0f;
+    return x;
 }
 
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
 {
-    // Input stage with high-pass filter
-    const float x1 = hpf_k * x + (x - prev_x);
+    // Match JSFX drive scaling
+    float drive = processing * 24.0f;
     
-    // More aggressive pre-saturation
-    const float proc = processing * a3 * 1.5f;
-    const float x2 = x1 * (f1 + 0.5f * proc) + x1 * (1.0f + 0.15f * proc * proc);
-    
-    // Apply saturation
-    float saturated = sat(g0 ? x2 : x);
-    
-    // Gold-specific output boost
-    if (sat_type == 1) {
-        saturated *= 1.4f;
+    // Apply drive with slight variations per type
+    switch (sat_type) {
+        case 0:  // Opal
+            x *= std::pow(10.0f, drive * 0.05f);
+            break;
+            
+        case 1:  // Gold
+            x *= std::pow(10.0f, drive * 0.06f); // Slightly more aggressive
+            break;
+            
+        case 2:  // Sapphire
+            x *= std::pow(10.0f, drive * 0.045f); // Slightly gentler
+            break;
+            
+        default:
+            x *= std::pow(10.0f, drive * 0.05f);
+            break;
     }
     
-    // Smoothing with less dampening
-    const float smooth_amount = 0.12f;
-    s = (1.0f - smooth_amount) * s + smooth_amount * saturated;
+    // Apply saturation based on type
+    switch (sat_type) {
+        case 0:  // Opal - JSFX-like with slight smoothing
+        {
+            if (x > 1.0f) x = 1.0f;
+            if (x < -1.0f) x = -1.0f;
+            // Add very subtle harmonics
+            float xx = x * x;
+            x = x * (1.0f - xx * 0.1f);
+            break;
+        }
+            
+        case 1:  // Gold - JSFX-like with asymmetry
+        {
+            if (x > 1.0f) x = 1.0f;
+            if (x < -1.0f) x = -0.95f; // Slight asymmetry
+            break;
+        }
+            
+        case 2:  // Sapphire - JSFX-like with slight compression
+        {
+            float sign = x > 0 ? 1.0f : -1.0f;
+            x = sign * (1.0f - std::exp(-std::abs(x)));
+            break;
+        }
+            
+        default:  // Pure JSFX-style hard clipping
+        {
+            if (x > 1.0f) x = 1.0f;
+            if (x < -1.0f) x = -1.0f;
+            break;
+        }
+    }
     
-    // Post-processing and output
-    prev_x = x;
-    float y = proc * (s - x * (p24 * 0.5f));
-    
-    // Return processed signal without auto-gain compensation
-    return y + x;
+    return x;
 }
 
 //==============================================================================
@@ -204,20 +120,20 @@ PhoenixSaturationAudioProcessor::PhoenixSaturationAudioProcessor()
                     .withOutput("Output", AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, "Parameters", {
           std::make_unique<AudioParameterFloat>(INPUT_TRIM_ID, "Input Trim",
-                                             NormalisableRange<float>(-12.0f, 12.0f, 0.1f),
-                                             0.0f),
+                                           NormalisableRange<float>(-12.0f, 12.0f, 0.1f),
+                                           0.0f),
           std::make_unique<AudioParameterFloat>(PROCESS_ID, "Process",
-                                             NormalisableRange<float>(0.0f, 100.0f, 0.1f),
-                                             0.0f),
+                                           NormalisableRange<float>(0.0f, 100.0f, 0.1f),
+                                           0.0f),
           std::make_unique<AudioParameterFloat>(OUTPUT_TRIM_ID, "Output Trim",
-                                             NormalisableRange<float>(-12.0f, 12.0f, 0.1f),
-                                             0.0f),
+                                           NormalisableRange<float>(-12.0f, 12.0f, 0.1f),
+                                           0.0f),
           std::make_unique<AudioParameterChoice>(BRIGHTNESS_ID, "Brightness",
-                                              StringArray{"Opal", "Gold", "Sapphire"},
-                                              0),
+                                            StringArray{"Opal", "Gold", "Sapphire"},
+                                            0),
           std::make_unique<AudioParameterChoice>(TYPE_ID, "Type",
-                                              StringArray{"Luminescent", "Iridescent", "Radiant", "Luster", "Dark Essence"},
-                                              0)
+                                            StringArray{"Luminescent", "Iridescent", "Radiant", "Luster", "Dark Essence"},
+                                            0)
       })
 {
     parameters.addParameterListener(INPUT_TRIM_ID, this);
@@ -226,8 +142,6 @@ PhoenixSaturationAudioProcessor::PhoenixSaturationAudioProcessor()
     parameters.addParameterListener(BRIGHTNESS_ID, this);
     parameters.addParameterListener(TYPE_ID, this);
 }
-
-// Would you like me to continue with the rest of the implementation, including the remaining processor methods and editor files?
 
 PhoenixSaturationAudioProcessor::~PhoenixSaturationAudioProcessor()
 {
@@ -285,7 +199,7 @@ void PhoenixSaturationAudioProcessor::prepareToPlay(double sampleRate, int sampl
     
     const float brightness = parameters.getParameter(BRIGHTNESS_ID)->getValue() * 2.0f;
     const float type = parameters.getParameter(TYPE_ID)->getValue() * 4.0f;
-    const float processAmount = parameters.getParameter(PROCESS_ID)->getValue() / 100.0f;
+    const float processAmount = parameters.getParameter(PROCESS_ID)->getValue();
     
     leftChannel.setMode(brightness, type);
     rightChannel.setMode(brightness, type);
@@ -316,20 +230,17 @@ void PhoenixSaturationAudioProcessor::parameterChanged(const String& parameterID
     }
     else if (parameterID == PROCESS_ID)
     {
-        const float processAmount = newValue / 100.0f;
-        leftChannel.setProcessing(processAmount);
-        rightChannel.setProcessing(processAmount);
+        leftChannel.setProcessing(newValue);
+        rightChannel.setProcessing(newValue);
     }
 }
 
 bool PhoenixSaturationAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
-    // Support mono and stereo configurations
     if (layouts.getMainOutputChannelSet() != AudioChannelSet::mono()
      && layouts.getMainOutputChannelSet() != AudioChannelSet::stereo())
         return false;
 
-    // Input and output layout must match
     return (layouts.getMainOutputChannelSet() == layouts.getMainInputChannelSet());
 }
 
@@ -350,7 +261,7 @@ void PhoenixSaturationAudioProcessor::setStateInformation(const void* data, int 
         
         const float brightness = parameters.getParameter(BRIGHTNESS_ID)->getValue() * 2.0f;
         const float type = parameters.getParameter(TYPE_ID)->getValue() * 4.0f;
-        const float processAmount = parameters.getParameter(PROCESS_ID)->getValue() / 100.0f;
+        const float processAmount = parameters.getParameter(PROCESS_ID)->getValue();
         
         leftChannel.setMode(brightness, type);
         rightChannel.setMode(brightness, type);
