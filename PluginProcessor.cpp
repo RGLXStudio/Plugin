@@ -28,8 +28,9 @@ PhoenixSaturationAudioProcessor::PhoenixProcessor::PhoenixProcessor()
 
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amount)
 {
-    // Scale the processing amount, but ensure it's truly 0 when amount is 0
-    processing = (amount * 0.01f) * 0.05f;
+    // Use exponential curve for more natural drive control
+    // and scale it to match JSFX behavior
+    processing = std::pow(amount * 0.01f, 1.5f) * 0.01f;
 }
 
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
@@ -39,8 +40,12 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
         return x;
         
     // Apply drive with auto-gain compensation
-    float auto_gain = 1.0f + processing * auto_gain_a1 + processing * processing * auto_gain_a2;
-    float drive = processing * 12.0f * a3;  // Using the scaled-down drive multiplier
+    // Scale the processing for auto-gain calculation
+    float proc_scaled = processing * 0.5f;
+    float auto_gain = 1.0f + proc_scaled * auto_gain_a1 + proc_scaled * proc_scaled * auto_gain_a2;
+    
+    // Back to original drive scaling but with better curve
+    float drive = processing * 24.0f * a3;
     
     x *= std::pow(10.0f, drive * 0.05f) * auto_gain;
     
