@@ -2,7 +2,7 @@
   ==============================================================================
 
     Phoenix Saturation Plugin
-    Created: 2025-01-08 14:52:51 UTC
+    Created: 2025-01-14 06:52:24 UTC
     Author:  RGLXStudio
 
   ==============================================================================
@@ -19,57 +19,59 @@
 #define TYPE_ID "type"
 
 class PhoenixSaturationAudioProcessor : public juce::AudioProcessor,
-public juce::AudioProcessorValueTreeState::Listener
+    public juce::AudioProcessorValueTreeState::Listener
 {
 public:
-// PhoenixProcessor class for audio processing
-class PhoenixProcessor {
-public:
-PhoenixProcessor() : processing(0.0f) {}
-void setProcessing(float amount) { processing = amount * 0.01f; }
-void setMode(float, float) {} // Empty as we use single mode
-void setSampleRate(double) {} // Not needed
-void reset() {} // Not needed
-float processSample(float x);
+    // PhoenixProcessor class for audio processing
+    class PhoenixProcessor {
+    public:
+        PhoenixProcessor() : processing(0.0f) {}
+        void setProcessing(float amount) { processing = amount * 0.01f; }
+        void setMode(float, float) {} // Not used anymore
+        void setSampleRate(double) {} // Not used anymore
+        void reset() {} // Not used anymore
+        float processSample(float x);
+    private:
+        float processing;
+    };
+
+    PhoenixSaturationAudioProcessor();
+    ~PhoenixSaturationAudioProcessor() override;
+
+    void prepareToPlay(double sampleRate, int samplesPerBlock) override;
+    void releaseResources() override;
+    void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void parameterChanged(const juce::String& parameterID, float newValue) override;
+
+    juce::AudioProcessorEditor* createEditor() override;
+    bool hasEditor() const override { return true; }
+
+    const juce::String getName() const override { return JucePlugin_Name; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
+
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram(int) override {}
+    const juce::String getProgramName(int) override { return {}; }
+    void changeProgramName(int, const juce::String&) override {}
+
+    void getStateInformation(juce::MemoryBlock& destData) override;
+    void setStateInformation(const void* data, int sizeInBytes) override;
+
+    bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
+
+    juce::AudioProcessorValueTreeState& getState() { return parameters; }
+
 private:
-float processing; // Main processing amount
+    juce::AudioProcessorValueTreeState parameters;
+    PhoenixProcessor leftChannel;
+    PhoenixProcessor rightChannel;
+
+    double currentSampleRate = 44100.0;
+    int currentBlockSize = 512;
+    bool prepared = false;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PhoenixSaturationAudioProcessor)
 };
-
-PhoenixSaturationAudioProcessor();
-~PhoenixSaturationAudioProcessor() override;
-
-void prepareToPlay(double sampleRate, int samplesPerBlock) override;
-void releaseResources() override;
-void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
-void parameterChanged(const juce::String& parameterID, float newValue) override;
-
-juce::AudioProcessorEditor* createEditor() override;
-bool hasEditor() const override { return true; }
-
-const juce::String getName() const override { return JucePlugin_Name; }
-bool acceptsMidi() const override { return false; }
-bool producesMidi() const override { return false; }
-double getTailLengthSeconds() const override { return 0.0; }
-
-int getNumPrograms() override { return 1; }
-int getCurrentProgram() override { return 0; }
-void setCurrentProgram(int) override {}
-const juce::String getProgramName(int) override { return {}; }
-void changeProgramName(int, const juce::String&) override {}
-
-void getStateInformation(juce::MemoryBlock& destData) override;
-void setStateInformation(const void* data, int sizeInBytes) override;
-
-bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
-
-// Accessor for the parameter state
-juce::AudioProcessorValueTreeState& getState() { return parameters; }
-private:
-juce::AudioProcessorValueTreeState parameters;
-PhoenixProcessor leftChannel;
-PhoenixProcessor rightChannel;
-double currentSampleRate = 44100.0;
-int currentBlockSize = 512;
-bool prepared = false;
-
-JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PhoenixSaturationAudioProcessor)
