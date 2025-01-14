@@ -15,14 +15,71 @@ using namespace juce;
 
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
 {
-    // Exact JSFX behavior:
+    // Base drive calculation (JSFX-style)
     float drive = processing * 24.0f; // Scale 0-1 to 0-24 range
-    x *= std::pow(10.0f, drive * 0.05f); // Same as JSFX gain = 10^(drive/20)
     
-    // Hard clip exactly like JSFX
-    if (x > 1.0f) return 1.0f;
-    if (x < -1.0f) return -1.0f;
-    return x;
+    // Modify drive based on model type
+    switch (model_type) {
+        case 0: // Luminescent - standard
+            break;
+        case 1: // Iridescent - slightly less aggressive
+            drive *= 0.92f;
+            break;
+        case 2: // Radiant - slightly more aggressive
+            drive *= 1.08f;
+            break;
+        case 3: // Luster - much gentler
+            drive *= 0.75f;
+            break;
+        case 4: // Dark Essence - most aggressive
+            drive *= 1.25f;
+            break;
+    }
+    
+    // Apply drive with JSFX-style gain calculation
+    x *= std::pow(10.0f, drive * 0.05f);
+    
+    // Apply character variations while maintaining JSFX-like clipping
+    switch (sat_type) {
+        case 0: // Opal - standard hard clip with slight harmonics
+        {
+            // Clip at ±1.0
+            if (x > 1.0f) return 1.0f;
+            if (x < -1.0f) return -1.0f;
+            // Add subtle harmonics without changing the basic sound
+            float xx = x * x;
+            return x * (1.0f - xx * 0.05f);
+        }
+        
+        case 1: // Gold - asymmetric clip
+        {
+            // Different positive/negative thresholds
+            if (x > 1.0f) return 1.0f;
+            if (x < -1.0f) return -0.98f;
+            return x;
+        }
+        
+        case 2: // Sapphire - smoother clip
+        {
+            // Soft clip transition near ±1.0
+            float abs_x = std::abs(x);
+            if (abs_x > 1.0f) {
+                return x > 0.0f ? 1.0f : -1.0f;
+            }
+            if (abs_x > 0.9f) {
+                float t = (abs_x - 0.9f) * 10.0f; // 0 to 1 transition
+                return x > 0.0f ? 
+                    x * (1.0f - t) + t : 
+                    x * (1.0f - t) - t;
+            }
+            return x;
+        }
+        
+        default: // Pure JSFX hard clip
+            if (x > 1.0f) return 1.0f;
+            if (x < -1.0f) return -1.0f;
+            return x;
+    }
 }
 
 PhoenixSaturationAudioProcessor::PhoenixSaturationAudioProcessor()
@@ -117,6 +174,13 @@ void PhoenixSaturationAudioProcessor::parameterChanged(const String& parameterID
     {
         leftChannel.setProcessing(newValue);
         rightChannel.setProcessing(newValue);
+    }
+    else if (parameterID == BRIGHTNESS_ID || parameterID == TYPE_ID)
+    {
+        const float brightness = parameters.getParameter(BRIGHTNESS_ID)->getValue() * 2.0f;
+        const float type = parameters.getParameter(TYPE_ID)->getValue() * 4.0f;
+        leftChannel.setMode(brightness, type);
+        rightChannel.setMode(brightness, type);
     }
 }
 
