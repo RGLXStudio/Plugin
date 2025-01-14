@@ -28,15 +28,32 @@ PhoenixSaturationAudioProcessor::PhoenixProcessor::PhoenixProcessor()
 
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amount)
 {
-    processing = amount * 0.01f; // Convert percentage to 0-1 range
+    // Test different scaling factors:
+    
+    // Option 1: Linear scaling (0.1x)
+    // processing = (amount * 0.01f) * 0.1f;
+    
+    // Option 2: Exponential scaling
+    // processing = std::pow((amount * 0.01f), 2.0f);
+    
+    // Option 3: More aggressive scaling (0.05x)
+    processing = (amount * 0.01f) * 0.05f;
 }
+
 
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
 {
     // Apply drive with auto-gain compensation
     float auto_gain = 1.0f + processing * auto_gain_a1 + processing * processing * auto_gain_a2;
-    float drive = processing * 24.0f * a3;
+    
+    // Original:
+    // float drive = processing * 24.0f * a3;
+    
+    // Modified to match reference:
+    float drive = processing * 12.0f * a3;  // Reduced drive multiplier
+    
     x *= std::pow(10.0f, drive * 0.05f) * auto_gain;
+    // ...
     
     // Hard clip
     if (x > 1.0f) x = 1.0f;
