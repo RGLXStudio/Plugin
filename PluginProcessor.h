@@ -1,13 +1,3 @@
-/*
-  ==============================================================================
-
-    Phoenix Saturation Plugin
-    Created: 2025-01-14 07:39:55 UTC
-    Author:  RGLXStudio
-
-  ==============================================================================
-*/
-
 #pragma once
 #include <JuceHeader.h>
 
@@ -34,9 +24,9 @@ public:
         
     private:
         // Processing parameters
+        float processing;     // Main processing amount
         int sat_type;         // Saturation type (0: Opal, 1: Gold, 2: Sapphire)
         int model_type;       // Character type (0: Luminescent, etc.)
-        float processing;     // Main processing amount
 
         // Parameters for the saturation algorithm
         float a3;             // Drive scaling
@@ -45,6 +35,13 @@ public:
         float p24;            // Output stage control
         float auto_gain_a1;   // Auto-gain coefficient 1
         float auto_gain_a2;   // Auto-gain coefficient 2
+
+        // Additional members
+        float sr_scale;       // Sample rate scale
+        float s;              // State variable for processing
+        float prev_x;         // Previous input sample
+        float hpf_k;          // High-pass filter coefficient
+        float lpf_k;          // Low-pass filter coefficient
 
         // Saturation stage
         float sat(float x);   // Saturation function
