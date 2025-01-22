@@ -13,12 +13,17 @@ PhoenixSaturationAudioProcessor::PhoenixProcessor::PhoenixProcessor()
     : processing(0.0f)
     , sat_type(0)
     , model_type(0)
+    , sr_scale(1.0f)
+    , s(0.0f)
+    , prev_x(0.0f)
     , a3(1.0f)
     , f1(0.5f)
     , p20(0.25f)
     , p24(0.1f)
     , auto_gain_a1(-0.5f)
     , auto_gain_a2(0.1f)
+    , hpf_k(0.0f)
+    , lpf_k(0.0f)
 {
 }
 
@@ -290,48 +295,6 @@ void PhoenixSaturationAudioProcessor::setStateInformation(const void* data, int 
         rightChannel.setMode(brightness, type);
     }
 }
-
-AudioProcessor* JUCE_CALLTYPE createPluginFilter()
-{
-    return new PhoenixSaturationAudioProcessor();
-}
-
-bool PhoenixSaturationAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
-{
-    if (layouts.getMainOutputChannelSet() != AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != AudioChannelSet::stereo())
-        return false;
-
-    return (layouts.getMainOutputChannelSet() == layouts.getMainInputChannelSet());
-}
-
-void PhoenixSaturationAudioProcessor::getStateInformation(MemoryBlock& destData)
-{
-    auto state = parameters.copyState();
-    std::unique_ptr<XmlElement> xml(state.createXml());
-    copyXmlToBinary(*xml, destData);
-}
-
-void PhoenixSaturationAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
-{
-    std::unique_ptr<XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
-    
-    if (xmlState != nullptr && xmlState->hasTagName(parameters.state.getType()))
-    {
-        parameters.replaceState(ValueTree::fromXml(*xmlState));
-        
-        const float processAmount = parameters.getParameter(PROCESS_ID)->getValue();
-        const float brightness = parameters.getParameter(BRIGHTNESS_ID)->getValue() * 2.0f;
-        const float type = parameters.getParameter(TYPE_ID)->getValue() * 4.0f;
-        
-        leftChannel.setProcessing(processAmount);
-        rightChannel.setProcessing(processAmount);
-        leftChannel.setMode(brightness, type);
-        rightChannel.setMode(brightness, type);
-    }
-}
-
-
 
 AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
