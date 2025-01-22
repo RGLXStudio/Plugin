@@ -24,6 +24,7 @@ PhoenixSaturationAudioProcessor::PhoenixProcessor::PhoenixProcessor()
     , auto_gain_a2(0.1f)
     , hpf_k(0.0f)
     , lpf_k(0.0f)
+    , auto_gain(1.0f)
 {
 }
 
