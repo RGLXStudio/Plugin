@@ -19,34 +19,40 @@
 #define TYPE_ID "type"
 
 class PhoenixSaturationAudioProcessor : public juce::AudioProcessor,
-    public juce::AudioProcessorValueTreeState::Listener
+                                        public juce::AudioProcessorValueTreeState::Listener
 {
 public:
     // PhoenixProcessor class for audio processing
     class PhoenixProcessor {
     public:
-        PhoenixProcessor();  // Just declaration
-        void setProcessing(float amount);  // Just declaration
-        void setMode(float brightness, float type);  // Just declaration
-        void setSampleRate(double) {} // This tiny one can stay inline
-        void reset() {} // This tiny one can stay inline
-        float processSample(float x);  // Just declaration
+        PhoenixProcessor();
+        void setSampleRate(double sampleRate);
+        void reset();
+        void setMode(float brightness, float type);
+        void setProcessing(float amount);
+        float processSample(float x);
+        
     private:
-        float processing;
-        int sat_type;    // Brightness: 0=Opal, 1=Gold, 2=Sapphire
-        int model_type;  // Type: 0=Luminescent, 1=Iridescent, etc.
-        float a3;        // Drive scaling
-        float f1;        // Presence control
-        float p20;       // Harmonics balance
-        float p24;       // Output stage control
-        float auto_gain_a1;
-        float auto_gain_a2;
+        // Processing parameters
+        int sat_type;         // Saturation type (0: Opal, 1: Gold, 2: Sapphire)
+        int model_type;       // Character type (0: Luminescent, etc.)
+        float processing;     // Main processing amount
+
+        // Parameters for the saturation algorithm
+        float a3;             // Drive scaling
+        float f1;             // Presence control
+        float p20;            // Harmonics balance
+        float p24;            // Output stage control
+        float auto_gain_a1;   // Auto-gain coefficient 1
+        float auto_gain_a2;   // Auto-gain coefficient 2
+
+        // Saturation stage
+        float sat(float x);   // Saturation function
     };
 
     PhoenixSaturationAudioProcessor();
     ~PhoenixSaturationAudioProcessor() override;
 
-    // Rest of the class remains the same...
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
@@ -71,6 +77,7 @@ public:
 
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
 
+    // Accessor for the parameter state
     juce::AudioProcessorValueTreeState& getState() { return parameters; }
 
 private:
