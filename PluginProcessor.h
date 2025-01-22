@@ -42,6 +42,7 @@ public:
         float prev_x;         // Previous input sample
         float hpf_k;          // High-pass filter coefficient
         float lpf_k;          // Low-pass filter coefficient
+        float auto_gain;      // Auto-gain value
 
         // Saturation stage
         float sat(float x);   // Saturation function
