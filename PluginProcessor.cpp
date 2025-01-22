@@ -6,6 +6,8 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <cstdlib> // For rand()
+#include <ctime>   // For time()
 
 using namespace juce;
 
@@ -26,6 +28,7 @@ PhoenixSaturationAudioProcessor::PhoenixProcessor::PhoenixProcessor()
     , lpf_k(0.0f)
     , auto_gain(1.0f)
 {
+    std::srand(static_cast<unsigned int>(std::time(0))); // Seed for randomness
 }
 
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setSampleRate(double sampleRate)
@@ -111,6 +114,12 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amou
     this->auto_gain = 1.0f + processing * this->auto_gain_a1 + processing * processing * this->auto_gain_a2;
 }
 
+double harmonicAdjustment(double input) {
+    static double baseValue = -234.79863;
+    double fluctuation = (std::rand() % 100) / 10000.0; // Introduce controlled randomness
+    return baseValue + fluctuation; // Adjust the logic and parameters as needed
+}
+
 float PhoenixSaturationAudioProcessor::PhoenixProcessor::sat(float x)
 {
     float y = 0.0f;
@@ -141,7 +150,10 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
     if (x > 1.0f) x = 1.0f;
     if (x < -1.0f) x = -1.0f;
 
-    float y = this->sat(x);
+    // Apply harmonic adjustment
+    double adjustedHarmonic = harmonicAdjustment(static_cast<double>(x));
+
+    float y = this->sat(static_cast<float>(adjustedHarmonic));
 
     // Apply curve smoothing using interpolation
     float s = this->s + (y - this->s) * this->lpf_k;
