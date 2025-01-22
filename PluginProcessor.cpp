@@ -105,7 +105,9 @@ void PhoenixSaturationAudioProcessor::PhoenixProcessor::setMode(float brightness
 
 void PhoenixSaturationAudioProcessor::PhoenixProcessor::setProcessing(float amount)
 {
-    processing = amount / 100.0f;
+    // Apply a scaling factor to reduce overall attenuation
+    float scalingFactor = 0.25f;
+    processing = (amount / 100.0f) * scalingFactor;
     this->auto_gain = 1.0f + processing * this->auto_gain_a1 + processing * processing * this->auto_gain_a2;
 }
 
@@ -141,6 +143,7 @@ float PhoenixSaturationAudioProcessor::PhoenixProcessor::processSample(float x)
 
     float y = this->sat(x);
 
+    // Apply curve smoothing using interpolation
     float s = this->s + (y - this->s) * this->lpf_k;
     float output = processing * (s - x * this->p24);
 
